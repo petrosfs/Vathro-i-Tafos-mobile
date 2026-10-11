@@ -234,3 +234,24 @@ export function makeProEspresso(): THREE.Group {
   g.add(m(G.box, new THREE.MeshBasicMaterial({ color: '#F5C542' }), 0.005, 0.05, 0.16, 0.17, 0.2, 0));
   return g;
 }
+
+/** Πιατέλα με κουραμπιέδες και άχνη, με ταμπελάκι. Η βάση είναι στο y = 0. */
+export function makeKourabiedes(): THREE.Group {
+  const g = new THREE.Group();
+  g.add(m(G.cyl, '#F4F1EA', 0.2, 0.015, 0.2, 0, 0.008, 0));
+  g.add(m(G.cyl, '#D9D2C2', 0.17, 0.005, 0.17, 0, 0.017, 0));
+  const pos: [number, number][] = [[0, 0], [0.09, 0.05], [-0.09, 0.05], [0.07, -0.08], [-0.07, -0.08], [0, 0.11]];
+  pos.forEach(([x, z], i) => {
+    const k = m(G.sphere, '#FFFFFF', 0.05, 0.038, 0.05, x, 0.038, z);
+    k.rotation.y = i;
+    g.add(k);
+  });
+  g.add(m(G.sphere, '#FFFFFF', 0.045, 0.035, 0.045, 0.03, 0.085, 0.02));
+  // άχνη σκορπισμένη γύρω
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    const r = 0.21 + (i % 3) * 0.025;
+    g.add(m(G.cyl, '#FFFFFF', 0.012, 0.002, 0.012, Math.cos(a) * r, 0.001, Math.sin(a) * r));
+  }
+  return g;
+}

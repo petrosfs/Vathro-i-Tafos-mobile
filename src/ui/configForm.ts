@@ -1,7 +1,7 @@
 // Φόρμα ρυθμίσεων παρτίδας (solo και host).
 import { esc, h } from '../app';
 import { money, t } from '../i18n';
-import type { EndRule, GameConfig } from '../sim/engine';
+import { BANKRUPT_PCT_DEFAULT, BANKRUPT_PCT_MAX, bankruptPct, type EndRule, type GameConfig } from '../sim/engine';
 import type { Difficulty } from '../sim/market';
 
 const LENS = [360, 600];
@@ -17,7 +17,7 @@ export function loadConfig(): GameConfig {
   const dev = import.meta.env.DEV ? Number(new URLSearchParams(location.search).get('daylen')) : 0;
   if (dev > 0) {
     const end = new URLSearchParams(location.search).get('end') === 'bankrupt' ? 'bankrupt' : 'quota';
-    return { dayLen: dev, difficulty: 'easy', podiumDays: 2, startCash: 10000, endRule: end };
+    return { dayLen: dev, difficulty: 'easy', podiumDays: 2, startCash: 10000, endRule: end, bankruptPct: BANKRUPT_PCT_DEFAULT };
   }
   try {
     const c = JSON.parse(localStorage.getItem(KEY) ?? '{}');
@@ -27,9 +27,10 @@ export function loadConfig(): GameConfig {
       podiumDays: DAYS.includes(c.podiumDays) ? c.podiumDays : 10,
       startCash: CASH.includes(c.startCash) ? c.startCash : 10000,
       endRule: ENDS.includes(c.endRule) ? c.endRule : 'quota',
+      bankruptPct: bankruptPct(c),
     };
   } catch {
-    return { dayLen: 600, difficulty: 'normal', podiumDays: 10, startCash: 10000, endRule: 'quota' };
+    return { dayLen: 600, difficulty: 'normal', podiumDays: 10, startCash: 10000, endRule: 'quota', bankruptPct: BANKRUPT_PCT_DEFAULT };
   }
 }
 
@@ -44,7 +45,7 @@ export function saveConfig(c: GameConfig) {
 export const daysLabel = (n: number) => (n ? t('setup.daysN', { n }) : t('setup.endless'));
 
 export function configSummary(c: GameConfig): string {
-  return t('setup.summary', { len: c.dayLen / 120, diff: t(`diff.${c.difficulty}`), days: daysLabel(c.podiumDays), cash: money(c.startCash), end: t(`endRule.${c.endRule ?? 'quota'}`) });
+  return t('setup.summary', { len: c.dayLen / 120, diff: t(`diff.${c.difficulty}`), days: daysLabel(c.podiumDays), cash: money(c.startCash), end: c.endRule === 'bankrupt' ? `${t('endRule.bankrupt')} (${bankruptPct(c)}%)` : t('endRule.quota') });
 }
 
 /** Επιστρέφει το στοιχείο της φόρμας· κάθε αλλαγή καλεί το onChange. */
@@ -64,11 +65,28 @@ export function configForm(initial: GameConfig, onChange: (c: GameConfig) => voi
       ${seg('startCash', CASH, (v: number) => money(v))}
       <h3>${esc(t('setup.endRule'))}</h3>
       ${seg('endRule', ENDS, (v: string) => t(`endRule.${v}` as Parameters<typeof t>[0]))}
+      <div class="pct-row" hidden>
+        <label for="bk-pct">${esc(t('setup.bankruptPct'))}</label>
+        <input id="bk-pct" type="range" min="0" max="${BANKRUPT_PCT_MAX}" step="1" value="${bankruptPct(c)}" />
+        <b class="pct-val"></b>
+      </div>
       <p class="muted small end-hint"></p>
     </div>`);
+  const range = el.querySelector<HTMLInputElement>('#bk-pct')!;
   const hint = () => {
-    el.querySelector('.end-hint')!.textContent = t(c.endRule === 'bankrupt' ? 'endRule.hint.bankrupt' : 'endRule.hint.quota');
+    const pct = bankruptPct(c);
+    (el.querySelector('.pct-row') as HTMLElement).hidden = c.endRule !== 'bankrupt';
+    el.querySelector('.pct-val')!.textContent = `${pct}%`;
+    el.querySelector('.end-hint')!.textContent = c.endRule === 'bankrupt'
+      ? t(pct === 0 ? 'endRule.hint.bankrupt0' : 'endRule.hint.bankrupt', { p: pct })
+      : t('endRule.hint.quota');
   };
+  range.addEventListener('input', () => {
+    c.bankruptPct = Number(range.value);
+    hint();
+    saveConfig(c);
+    onChange({ ...c });
+  });
   hint();
   el.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-v]');

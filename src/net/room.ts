@@ -26,6 +26,8 @@ export interface RoomMeta {
   createdAt: number;
   /** Έκδοση του παιχνιδιού του host (όλοι πρέπει να έχουν την ίδια). */
   v?: string;
+  /** Τελευταίος «παλμός» του host στη διάρκεια της παρτίδας (ρολόι server). */
+  hb?: number;
   /** Συνέχεια αποθηκευμένης παρτίδας: ποια μέρα και ποιοι έπαιζαν. */
   resume?: ResumeInfo | null;
   config: GameConfig;
@@ -49,11 +51,15 @@ export interface RoomView {
 export type RoomError = 'not-found' | 'started' | 'full' | 'bad-code' | 'network' | 'version';
 
 /** Ποιος γίνεται host αν ο τωρινός είναι εκτός: ο πρώτος συνδεδεμένος κατά σειρά εισόδου. */
-export function nextHost(view: RoomView): string | null {
+/** Χωρίς «παλμό» από τον host για τόσο, θεωρείται κολλημένος (κακό ίντερνετ) και αναλαμβάνει άλλος. */
+export const HOST_STALE_MS = 8000;
+
+export function nextHost(view: RoomView, now = Date.now()): string | null {
   const host = view.meta?.host;
   if (!host) return null;
-  if (view.players[host]?.online) return null;
-  const first = sortedPlayers(view.players).find(([, p]) => p.online);
+  const stale = view.meta?.status === 'playing' && typeof view.meta.hb === 'number' && now - view.meta.hb > HOST_STALE_MS;
+  if (view.players[host]?.online && !stale) return null;
+  const first = sortedPlayers(view.players).find(([u, p]) => p.online && u !== host);
   return first ? first[0] : null;
 }
 
@@ -149,12 +155,23 @@ export class Room {
     );
   }
 
+  /** Αν ο host λείπει ή έχει κολλήσει και είμαι ο επόμενος, αναλαμβάνω (οι κανόνες της βάσης το επιτρέπουν μόνο τότε). */
+  checkHost() {
+    if (!this.view.loaded) return;
+    if (nextHost(this.view, this.net.now()) === this.net.uid) {
+      update(this.path('meta'), { host: this.net.uid, hb: serverTimestamp() }).catch(() => {});
+    }
+  }
+
+  /** Ο host δηλώνει ότι είναι ζωντανός. */
+  heartbeat() {
+    if (this.isHost) update(this.path('meta'), { hb: serverTimestamp() }).catch(() => {});
+  }
+
   private changed() {
     if (!this.view.loaded) return;
     // Αν ο host λείπει και είμαι ο επόμενος, αναλαμβάνω (οι κανόνες της βάσης το επιτρέπουν μόνο τότε).
-    if (nextHost(this.view) === this.net.uid) {
-      update(this.path('meta'), { host: this.net.uid }).catch(() => {});
-    }
+    this.checkHost();
     for (const l of this.listeners) l(this.view);
   }
 

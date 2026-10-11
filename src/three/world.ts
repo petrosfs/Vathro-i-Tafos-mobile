@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import type { Look } from '../sim/engine';
 import type { Pose } from '../net/transport';
 import { Avatar, mat, PLAYER_COLORS } from './avatar';
-import { animateAquarium, DECOR_SPOTS, makeAquarium, makeDecor, makeProEspresso, makeSofa } from './props';
+import { animateAquarium, DECOR_SPOTS, makeAquarium, makeDecor, makeKourabiedes, makeProEspresso, makeSofa } from './props';
+import { Tiger } from './tiger';
 import type { DecorId, UpgradeId } from '../sim/office';
 import { FirstPerson, collide } from './controls';
 import { buildOffice, ROOM, type Interactable, type Office } from './office';
@@ -59,6 +60,9 @@ export class World {
   private upgrades = new Map<UpgradeId, THREE.Group>();
   private baseColliders: number;
   private aquarium: THREE.Group | null = null;
+  private tiger: Tiger | null = null;
+  private petSeed = 1;
+  private speedBoost = 1;
   private newsScreens: { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D }[] = [];
   private lastHeadline = '';
   onFrame: (dt: number) => void = () => {};
@@ -99,6 +103,7 @@ export class World {
     this.view = v;
     if (v !== 'overview' && !this.fp) {
       this.fp = new FirstPerson(this.renderer.domElement, this.opts.sensitivity);
+      this.fp.speedMul = this.speedBoost;
       this.fp.onInteract = () => this.onInteract();
       this.fp.onEscape = () => this.onEscape();
       const seat = this.mySeat();
@@ -244,7 +249,10 @@ export class World {
   }
 
   /** Αναβαθμίσεις της ομάδας: εμφανίζονται στο γραφείο. */
-  setUpgrades(ids: UpgradeId[]) {
+  setUpgrades(ids: UpgradeId[], seed = 1) {
+    this.petSeed = seed;
+    this.speedBoost = ids.includes('kourabie') ? 1.3 : 1;
+    if (this.fp) this.fp.speedMul = this.speedBoost;
     const key = [...ids].sort().join(',');
     if (key === this.upgradesKey) return;
     this.upgradesKey = key;
@@ -252,6 +260,7 @@ export class World {
       if (!ids.includes(id)) {
         g.removeFromParent();
         this.upgrades.delete(id);
+        if (id === 'tiger') this.tiger = null;
       }
     }
     this.office.colliders.length = this.baseColliders;
@@ -318,6 +327,18 @@ export class World {
       }
       case 'goldbell':
         break;
+      case 'kourabie': {
+        // πιατέλα πάνω στον πάγκο του καφέ, δίπλα στις κούπες
+        const k = makeKourabiedes();
+        k.position.set(ROOM.minX + 0.36, 0.94, -5.55);
+        g.add(k);
+        break;
+      }
+      case 'tiger': {
+        this.tiger = new Tiger(this.petSeed);
+        g.add(this.tiger.group);
+        break;
+      }
     }
     return g;
   }
@@ -372,6 +393,7 @@ export class World {
     }
     this.updateEnding(dt);
     if (this.aquarium) animateAquarium(this.aquarium, now / 1000);
+    if (this.tiger && !this.ending) this.tiger.update(Date.now());
     this.updateCamera(dt, now);
     const tagK = this.ending || this.fp ? 1 : this.camera.aspect < 1 ? 1.9 : 1.5;
     if (tagK !== this.tagK) {
@@ -380,7 +402,10 @@ export class World {
     }
     this.onFrame(dt);
     this.renderer.render(this.scene, this.camera);
-    if (import.meta.env.DEV) (window as unknown as { __calls: number }).__calls = this.renderer.info.render.calls;
+    if (import.meta.env.DEV) {
+      (window as unknown as { __calls: number }).__calls = this.renderer.info.render.calls;
+      (window as unknown as { __world: World }).__world = this;
+    }
   }
 
   private updateCamera(_dt: number, now: number) {

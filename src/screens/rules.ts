@@ -22,7 +22,7 @@ const BODY = {
       <li>Κάθε μέρα έχει <b>στόχο κέρδους</b>, που μεγαλώνει από μέρα σε μέρα (και με τον αριθμό των παικτών).</li>
       <li>Αν τον πιάσετε, παίρνετε νομίσματα για το κατάστημα, περισσότερα όσο τον ξεπερνάτε.</li>
       <li>Αν αποτύχετε, το fund κλείνει: <b>στον τάφο</b>. Αν αντέξετε όλες τις μέρες: <b>στο βάθρο</b>, με τους καλύτερους traders στα σκαλοπάτια.</li>
-      <li>Με τη ρύθμιση «Μόνο με χρεωκοπία», ο χαμένος στόχος σημαίνει απλώς μηδέν νομίσματα· το fund κλείνει μόνο αν το ταμείο πέσει κάτω από το 10% του αρχικού κεφαλαίου.</li>
+      <li>Με τη ρύθμιση «Μόνο με χρεωκοπία», ο χαμένος στόχος σημαίνει απλώς μηδέν νομίσματα· το fund κλείνει μόνο αν το ταμείο πέσει κάτω από ένα όριο του αρχικού κεφαλαίου (0–15%, προεπιλογή 10%, το ρυθμίζει ο host).</li>
     </ul>
     <h3>Ειδήσεις</h3>
     <ul>
@@ -46,7 +46,7 @@ const BODY = {
       <li>Every day has a <b>profit quota</b> that grows day by day (and with the number of players).</li>
       <li>Hit it and you earn coins for the shop, more the further you beat it.</li>
       <li>Miss it and the fund closes: <b>into the grave</b>. Survive every day: <b>onto the podium</b>, with the best traders on the steps.</li>
-      <li>With the “Only when bankrupt” setting, a missed quota just means zero coins; the fund closes only if the balance drops below 10% of the starting capital.</li>
+      <li>With the “Only when bankrupt” setting, a missed quota just means zero coins; the fund closes only if the balance drops below a threshold of the starting capital (0–15%, 10% by default, set by the host).</li>
     </ul>
     <h3>News</h3>
     <ul>

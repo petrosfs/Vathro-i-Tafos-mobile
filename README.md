@@ -76,14 +76,14 @@
 της. Κάθε κίνηση εκτελείται στην τιμή της στιγμής που πατήθηκε το κουμπί, με ανοχή ως 3 δευτερόλεπτα
 καθυστέρησης δικτύου. Έτσι ένας παίκτης από την Αμερική παίζει επί ίσοις όροις.
 
-**Χωρίς server.** Αν φύγει ο host, αναλαμβάνει αυτόματα ο επόμενος παίκτης και η μέρα συνεχίζει από την
+**Χωρίς server.** Αν φύγει ο host ή «κολλήσει» το ίντερνέτ του για 8 δευτερόλεπτα, αναλαμβάνει αυτόματα ο επόμενος παίκτης και η μέρα συνεχίζει από την
 αποθηκευμένη κατάσταση. Όποιος κάνει ανανέωση στη σελίδα, ξαναμπαίνει στο δωμάτιο.
 
 **Ελαφρύ.** Η αρχική φορτώνει χωρίς το Firebase, που κατεβαίνει μόνο όταν πας online. Στα κινητά η
 προεπιλογή είναι σταθερή κάμερα και ελαφριά γραφικά.
 
 **Ποιότητα.**
-- **35 τεστ** (Vitest), με προσομοιώσεις χιλιάδων τυχαίων κινήσεων που ελέγχουν ότι το ταμείο δεν γίνεται
+- **41 τεστ** (Vitest), με προσομοιώσεις χιλιάδων τυχαίων κινήσεων που ελέγχουν ότι το ταμείο δεν γίνεται
   ποτέ αρνητικό και ότι δεν χάνεται θέση.
 - Κατά την ανάπτυξη, **δοκιμές σε πραγματικό browser** (Playwright) με τοπικό Firebase emulator: παρτίδες
   10 παικτών, αλλαγή host στη μέση της μέρας, επανασύνδεση μετά από ανανέωση, επιστροφή στο δωμάτιο.
@@ -170,14 +170,14 @@ phone or a computer, with no install and no account.
 executes at the price of the moment the button was pressed, tolerating up to 3 seconds of network delay, so a
 player in the US plays on equal terms.
 
-**No server.** If the host leaves, the next player takes over automatically and the day continues from the
+**No server.** If the host leaves or their connection stalls for 8 seconds, the next player takes over automatically and the day continues from the
 saved state. Anyone who refreshes the page rejoins the room.
 
 **Lightweight.** The home screen loads without Firebase, which downloads only when you go online. Phones
 default to the fixed camera and light graphics.
 
 **Quality.**
-- **35 tests** (Vitest), with simulations of thousands of random moves checking that the balance never goes
+- **41 tests** (Vitest), with simulations of thousands of random moves checking that the balance never goes
   negative and no position is lost.
 - During development, **real-browser tests** (Playwright) against a local Firebase emulator: 10-player games, a
   host change mid-day, rejoining after a refresh, returning to the room.

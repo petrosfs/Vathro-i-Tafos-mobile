@@ -8,7 +8,7 @@
         ".write": "auth != null && !newData.exists() && (data.child('meta/host').val() === auth.uid || data.child('meta/createdAt').val() < now - 86400000)",
         ".validate": "$code.matches(/^[A-HJ-NP-Z2-9]{4}$/)",
         "meta": {
-          ".write": "auth != null && ((!data.exists() && newData.child('host').val() === auth.uid) || data.child('host').val() === auth.uid || (data.exists() && newData.child('host').val() === auth.uid && root.child('rooms').child($code).child('players').child(auth.uid).exists() && root.child('rooms').child($code).child('players').child(data.child('host').val()).child('online').val() !== true))",
+          ".write": "auth != null && ((!data.exists() && newData.child('host').val() === auth.uid) || data.child('host').val() === auth.uid || (data.exists() && newData.child('host').val() === auth.uid && root.child('rooms').child($code).child('players').child(auth.uid).exists() && root.child('rooms').child($code).child('players').child(data.child('host').val()).child('online').val() !== true) || (data.exists() && newData.child('host').val() === auth.uid && root.child('rooms').child($code).child('players').child(auth.uid).exists() && data.child('status').val() === 'playing' && data.child('hb').isNumber() && data.child('hb').val() < now - 8000))",
           ".validate": "newData.hasChildren(['host', 'status', 'createdAt', 'config']) && newData.child('status').val().matches(/^(lobby|playing|ended)$/)"
         },
         "players": {

@@ -9,7 +9,7 @@ import {
 } from './items';
 import { hash, stream } from './rng';
 import {
-  available, ESPRESSO_TICKS, MAX_DECOR, OFFICE_DEF, type DecorId, type OfficeId, type UpgradeId,
+  available, ESPRESSO_TICKS, KOURABIE_TICKS, MAX_DECOR, OFFICE_DEF, type DecorId, type OfficeId, type UpgradeId,
 } from './office';
 import { STOCK_COUNT } from './stocks';
 
@@ -32,14 +32,22 @@ export interface GameConfig {
   startCash: number;
   /** Πότε τελειώνει η παρτίδα: με την πρώτη αποτυχία στόχου ή μόνο με χρεωκοπία. */
   endRule?: EndRule;
+  /** Όριο χρεωκοπίας σε % του αρχικού κεφαλαίου (0–15, προεπιλογή 10). */
+  bankruptPct?: number;
 }
 
 export type EndRule = 'quota' | 'bankrupt';
 
-export const DEFAULT_CONFIG: GameConfig = { dayLen: 600, difficulty: 'normal', podiumDays: 10, startCash: 10000, endRule: 'quota' };
+export const DEFAULT_CONFIG: GameConfig = { dayLen: 600, difficulty: 'normal', podiumDays: 10, startCash: 10000, endRule: 'quota', bankruptPct: 10 };
 
-/** Χρεωκοπία: ταμείο κάτω από αυτό το ποσοστό του αρχικού κεφαλαίου στο τέλος της μέρας. */
-export const BANKRUPT_SHARE = 0.1;
+/** Χρεωκοπία: ταμείο κάτω από αυτό το ποσοστό (%) του αρχικού κεφαλαίου στο τέλος της μέρας. */
+export const BANKRUPT_PCT_DEFAULT = 10;
+export const BANKRUPT_PCT_MAX = 15;
+
+export function bankruptPct(c: GameConfig): number {
+  const v = Math.round(Number(c.bankruptPct ?? BANKRUPT_PCT_DEFAULT));
+  return Number.isFinite(v) ? Math.max(0, Math.min(BANKRUPT_PCT_MAX, v)) : BANKRUPT_PCT_DEFAULT;
+}
 /** Με το αλεξίπτωτο, μετά από χρεωκοπία το ταμείο ξαναγεμίζει ως εδώ. */
 export const RESCUE_SHARE = 0.25;
 
@@ -451,7 +459,7 @@ export function allReady(s: GameState, online: (uid: string) => boolean): boolea
 export function startDay(s: GameState, startAt: number) {
   s.phase = 'trading';
   s.startAt = startAt;
-  s.len = s.config.dayLen + (s.office.includes('espresso') ? ESPRESSO_TICKS : 0);
+  s.len = s.config.dayLen + (s.office.includes('espresso') ? ESPRESSO_TICKS : 0) + (s.office.includes('kourabie') ? KOURABIE_TICKS : 0);
   s.coffee = 0;
   s.checked = 0;
   s.quota = quotaFor(s);
@@ -493,7 +501,8 @@ export function endDay(s: GameState, prices: Prices): DayResult {
   const profit = s.cash - s.dayStartEquity;
   const passed = profit >= s.quota && s.cash > 0;
   const bankruptRule = s.config.endRule === 'bankrupt';
-  let bankrupt = bankruptRule && s.cash < s.config.startCash * BANKRUPT_SHARE;
+  // με όριο 0% χρεωκοπία σημαίνει άδειο ταμείο
+  let bankrupt = bankruptRule && (s.cash < (s.config.startCash * bankruptPct(s.config)) / 100 || s.cash <= 0);
   let saved = false;
   let coins = 0;
   if (passed) {

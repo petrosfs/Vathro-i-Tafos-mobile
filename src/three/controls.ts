@@ -13,6 +13,8 @@ export class FirstPerson {
   enabled = true;
   moving = false;
   private vel = { x: 0, z: 0 };
+  /** Πολλαπλασιαστής ταχύτητας (π.χ. με την κουραμπιεδόσκονη). */
+  speedMul = 1;
   private keys = new Set<string>();
   private joy = { x: 0, y: 0, id: -1, ox: 0, oy: 0 };
   private look = { id: -1, x: 0, y: 0 };
@@ -142,7 +144,7 @@ export class FirstPerson {
       }
     }
     // ομαλή επιτάχυνση και φρενάρισμα αντί για απότομο ξεκίνημα/σταμάτημα
-    const run = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') ? 1.6 : 1;
+    const run = (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') ? 1.6 : 1) * this.speedMul;
     const k = 1 - Math.exp(-dt * 12);
     this.vel.x += (fx * SPEED * run - this.vel.x) * k;
     this.vel.z += (fz * SPEED * run - this.vel.z) * k;

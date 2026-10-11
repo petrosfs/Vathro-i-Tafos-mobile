@@ -298,3 +298,28 @@ describe('κανόνας τέλους', () => {
     expect(b.cash).toBe(2500);
   });
 });
+
+describe('όριο χρεωκοπίας και κουραμπιεδόσκονη', () => {
+  it('το όριο ρυθμίζεται 0–15% και το 0% σημαίνει μόνο άδειο ταμείο', () => {
+    const m = new MarketCache();
+    const at = (pct: number, cash: number) => {
+      const s = game(1, { ...DEFAULT_CONFIG, endRule: 'bankrupt', bankruptPct: pct });
+      startDay(s, 0);
+      s.cash = cash;
+      return endDay(s, m.prices(s)).bankrupt;
+    };
+    expect(at(15, 1400)).toBe(true);
+    expect(at(15, 1600)).toBe(false);
+    expect(at(10, 900)).toBe(true);
+    expect(at(0, 50)).toBe(false);
+    expect(at(0, 0)).toBe(true);
+    expect(at(40, 1600)).toBe(false); // πάνω από το μέγιστο γίνεται 15%
+  });
+
+  it('η κουραμπιεδόσκονη μακραίνει κάθε μέρα κατά 1 λεπτό (και αθροίζεται με την καφετιέρα)', () => {
+    const s = game();
+    s.office = ['kourabie', 'espresso'];
+    startDay(s, 0);
+    expect(s.len).toBe(600 + 120 + 60);
+  });
+});

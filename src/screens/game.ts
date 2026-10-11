@@ -217,7 +217,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         })));
       }
       world.setDecor(s.order.map((u) => s.players[u]?.decor ?? []));
-      world.setUpgrades(s.office ?? []);
+      world.setUpgrades(s.office ?? [], s.seed);
       // μόνιμα ξεκλειδώματα της συσκευής μου: να είναι διαθέσιμα και σε αυτή την παρτίδα
       if (!unlocksSent) {
         unlocksSent = true;

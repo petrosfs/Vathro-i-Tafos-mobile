@@ -4,7 +4,7 @@
 import type { Tr } from './stocks';
 
 export type DecorId = 'lamp' | 'cactus' | 'bonsai' | 'trophy' | 'lava' | 'frame' | 'globe' | 'bull' | 'goldfish' | 'duck';
-export type UpgradeId = 'espresso' | 'screens' | 'goldbell' | 'aquarium' | 'sofa' | 'neon';
+export type UpgradeId = 'espresso' | 'screens' | 'goldbell' | 'aquarium' | 'sofa' | 'neon' | 'kourabie' | 'tiger';
 export type OfficeId = DecorId | UpgradeId;
 
 /** Πότε ξεκλειδώνει κάτι: φτάνοντας σε μέρα, ανεβαίνοντας στο βάθρο, ή με κέρδος σε μία παρτίδα. */
@@ -53,6 +53,12 @@ export const OFFICE: OfficeDef[] = [
     name: { el: 'Νέον ταμπέλα', en: 'Neon sign' }, desc: { el: 'Το όνομα του fund να λάμπει στον τοίχο.', en: 'The fund’s name glowing on the wall.' } },
   { id: 'aquarium', kind: 'upgrade', price: 4, glyph: '🐟', unlock: { kind: 'podium' },
     name: { el: 'Ενυδρείο', en: 'Aquarium' }, desc: { el: 'Μεγάλο ενυδρείο για το γραφείο των νικητών.', en: 'A big aquarium for a winning office.' } },
+  { id: 'kourabie', kind: 'upgrade', price: 7, glyph: '❄', unlock: { kind: 'day', n: 5 },
+    name: { el: 'Κουραμπιεδόσκονη', en: 'Kourabies sugar dust' },
+    desc: { el: 'Πιο δραστική από τον καφέ: κάθε μέρα κρατάει 1 λεπτό περισσότερο και όλοι περπατάνε πιο γρήγορα.', en: 'Stronger than coffee: every day lasts 1 minute longer and everyone walks faster.' } },
+  { id: 'tiger', kind: 'upgrade', price: 8, glyph: '🐯', unlock: { kind: 'podium' },
+    name: { el: 'Τίγρης', en: 'Tiger' },
+    desc: { el: 'Το κατοικίδιο του fund τριγυρνάει ελεύθερο στο γραφείο. Μόνο για όσους ανέβηκαν στο βάθρο.', en: 'The fund’s pet roams the office freely. Only for those who made the podium.' } },
 ];
 
 export const OFFICE_DEF: Record<OfficeId, OfficeDef> = Object.fromEntries(OFFICE.map((o) => [o.id, o])) as Record<OfficeId, OfficeDef>;
@@ -61,6 +67,8 @@ export const MAX_DECOR = 4;
 /** Ticks που κερδίζει η καφετιέρα (30″) και οι οθόνες ειδήσεων (5″). */
 export const ESPRESSO_TICKS = 60;
 export const SCREENS_TICKS = 10;
+/** Η κουραμπιεδόσκονη: +1 λεπτό τη μέρα. */
+export const KOURABIE_TICKS = 120;
 
 /** Μόνιμη πρόοδος στη συσκευή: τι έχει πετύχει ο παίκτης σε όλες του τις παρτίδες. */
 export interface Progress {

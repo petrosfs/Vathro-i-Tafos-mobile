@@ -1626,3 +1626,26 @@ tr.me td {
 .rules-panel .panel-body h3 {
   display: block;
 }
+
+.pct-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.pct-row label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pct-row input {
+  flex: 1;
+}
+
+.pct-row .pct-val {
+  min-width: 3ch;
+  text-align: right;
+  color: var(--gold);
+}

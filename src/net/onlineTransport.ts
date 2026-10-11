@@ -40,7 +40,14 @@ export class OnlineTransport implements Transport {
   private stopRoom: () => void;
   private closed = false;
 
+  private pulse: ReturnType<typeof setInterval>;
+
   constructor(private room: Room) {
+    // κάθε 2″: ο host στέλνει «παλμό», οι άλλοι ελέγχουν αν πρέπει να αναλάβουν
+    this.pulse = setInterval(() => {
+      if (this.host && this.room.isHost) this.room.heartbeat();
+      else this.room.checkHost();
+    }, 2000);
     this.unsubs.push(
       onValue(room.path('state'), (snap) => {
         const v = snap.val();
@@ -198,6 +205,7 @@ export class OnlineTransport implements Transport {
 
   close() {
     this.closed = true;
+    clearInterval(this.pulse);
     this.host?.stop();
     this.host = null;
     this.unsubs.forEach((u) => u());
