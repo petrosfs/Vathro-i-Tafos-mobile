@@ -11,6 +11,10 @@ const FLUSH_MS = 150;
 /** Πόσο συχνά στέλνει κάθε παίκτης τη θέση του (ms). */
 const POSE_MS = 120;
 
+/** Λιγότερα δεκαδικά στο δίκτυο: ίδια ακρίβεια για το παιχνίδι, μικρότερα μηνύματα. */
+const compact = (_k: string, v: unknown) =>
+  typeof v === 'number' && !Number.isInteger(v) ? Number(v.toPrecision(7)) : v;
+
 interface Wire {
   s: GameState;
   e?: Record<string, HostError>;
@@ -101,7 +105,7 @@ export class OnlineTransport implements Transport {
           if (!this.room.isHost) return;
           const w: Wire = { s, e };
           this.last = structuredClone(w);
-          const patch: Record<string, unknown> = { state: JSON.stringify(w) };
+          const patch: Record<string, unknown> = { state: JSON.stringify(w, compact) };
           for (const k of keys) patch[`actions/${k}`] = null;
           update(this.room.path(''), patch).catch(() => {});
           for (const cb of this.stateCbs) cb(this.last.s, this.last.e ?? {});

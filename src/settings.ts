@@ -1,7 +1,7 @@
 // Προσωπικές ρυθμίσεις, αποθηκευμένες στη συσκευή.
 export interface PersonalSettings {
   lang: 'auto' | 'el' | 'en';
-  view: 'first' | 'overview';
+  view: 'first' | 'third' | 'overview';
   quality: 'low' | 'high';
   sound: boolean;
   sensitivity: number;

@@ -158,6 +158,14 @@ function onlineGame(room: Room): Screen {
   });
 }
 
+/** Αλλάζει το περιεχόμενο μόνο αν διαφέρει, ώστε να μη χάνονται πατήματα σε κουμπιά. */
+function setHtml(el: Element, html: string) {
+  if ((el as HTMLElement).dataset.html !== html) {
+    (el as HTMLElement).dataset.html = html;
+    el.innerHTML = html;
+  }
+}
+
 export function lobbyScreen(room: Room): Screen {
   return (root) => {
     root.className = 'page';
@@ -181,7 +189,7 @@ export function lobbyScreen(room: Room): Screen {
       if (!v.meta) return;
       const players = sortedPlayers(v.players);
       el.querySelector('.players-h')!.textContent = t('lobby.players', { n: players.length });
-      el.querySelector('.players')!.innerHTML = players.map(([uid, p], i) => `
+      setHtml(el.querySelector('.players')!, players.map(([uid, p], i) => `
         <li class="${p.online ? '' : 'off'}">
           <span class="dot" style="background:${PLAYER_COLORS[i % PLAYER_COLORS.length]}"></span>
           <b>${esc(p.name)}</b>
@@ -189,21 +197,22 @@ export function lobbyScreen(room: Room): Screen {
           ${uid === v.meta!.host ? `<span class="tag">${esc(t('host'))}</span>` : ''}
           ${p.online ? '' : `<small class="muted">${esc(t('offline'))}</small>`}
           ${room.isHost && uid !== room.uid ? `<button class="link" data-kick="${esc(uid)}">${esc(t('lobby.kick'))}</button>` : ''}
-        </li>`).join('');
+        </li>`).join(''));
       const cfg = el.querySelector('.cfg')!;
       if (room.isHost) {
         if (!cfgForHost) {
           cfg.innerHTML = '';
+          delete (cfg as HTMLElement).dataset.html;
           cfgForHost = configForm(v.meta.config, (c) => room.setConfig(c));
           cfg.append(cfgForHost);
         }
       } else {
         cfgForHost = null;
-        cfg.innerHTML = `<p class="muted">${esc(configSummary(v.meta.config))}</p>`;
+        setHtml(cfg as HTMLElement, `<p class="muted">${esc(configSummary(v.meta.config))}</p>`);
       }
-      el.querySelector('.lobby-foot')!.innerHTML = room.isHost
+      setHtml(el.querySelector('.lobby-foot')!, room.isHost
         ? `<button class="btn primary big wide" data-start ${room.lineup().length ? '' : 'disabled'}>${esc(t('lobby.start'))}</button>`
-        : `<p class="muted center">${esc(t('lobby.waitHost'))}</p>`;
+        : `<p class="muted center">${esc(t('lobby.waitHost'))}</p>`);
     };
     const stop = room.listen(render);
     el.addEventListener('click', async (e) => {

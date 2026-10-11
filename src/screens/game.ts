@@ -16,6 +16,7 @@ import { ShopPanel } from '../ui/shop';
 import { ChatPanel } from '../ui/chat';
 import { endScreen, type EndActions } from '../ui/endScreen';
 import { sanitizeLook } from '../profile';
+import { APP_VERSION } from '../version';
 
 export interface GameScreenOpts {
   transport: Transport;
@@ -75,6 +76,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
     world.start();
 
     let panel: PanelKind | null = null;
+    let openedAt = 0;
     const terminal = new Terminal(g, () => closePanel());
     const shop = new ShopPanel(g, () => closePanel(), opts.forceStart ? () => opts.forceStart!() : null);
     const chat = new ChatPanel(g.uid, (txt) => tr0.sendChat(txt), (e) => emote(e), () => closePanel());
@@ -83,6 +85,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
     function openPanel(k: PanelKind, desk: number | null = null) {
       if (k === 'shop' && g.s?.phase !== 'shop') return;
       closePanel(false);
+      openedAt = performance.now();
       panel = k;
       const p = k === 'terminal' ? terminal.el : k === 'shop' ? shop.el : k === 'chat' ? chat.el : menu;
       $('.panels').append(p);
@@ -125,17 +128,26 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       } else openPanel('terminal', it.index);
     }
     world.onInteract = interact;
+    world.onEscape = () => {
+      if (!panel && !ended) openPanel('menu');
+    };
     interactBtn.addEventListener('click', interact);
 
     const onKey = (e: KeyboardEvent) => {
       const typing = (e.target as HTMLElement)?.tagName === 'INPUT';
-      if (e.key === 'Escape' && panel) {
+      if (e.key === 'Escape') {
+        // Esc: κλείνει ό,τι είναι ανοιχτό, αλλιώς ανοίγει το μενού.
+        if (panel && performance.now() - openedAt > 300) closePanel();
+        else if (!panel && !ended) openPanel('menu');
+        e.preventDefault();
+      } else if (!typing && e.code === 'KeyE' && (panel === 'terminal' || panel === 'shop') && performance.now() - openedAt > 200) {
+        // Το E ανοίγει και κλείνει το τερματικό (και το κατάστημα).
         closePanel();
         e.preventDefault();
       } else if (!typing && !panel && e.key === 'Enter') {
         openPanel('chat');
         e.preventDefault();
-      } else if (!typing && (e.key === 't' || e.key === 'T') && world.view === 'overview') {
+      } else if (!typing && e.code === 'KeyT' && world.view === 'overview') {
         if (panel === 'terminal') closePanel();
         else openPanel('terminal');
       }
@@ -301,7 +313,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       $('.hud-cash b').textContent = money(g.equity());
       $('.hud-coins b').textContent = `🪙 ${s.coins}`;
       // κουμπιά
-      const fpMode = world.view === 'first';
+      const fpMode = world.view !== 'overview';
       const near = world.nearInteractable();
       const termBtn = el.querySelector<HTMLElement>('[data-ui="terminal"]')!;
       termBtn.hidden = s.phase === 'ended' || (fpMode && panel !== 'terminal');
@@ -442,8 +454,9 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           <header class="panel-head"><h2>${esc(t('menu.title'))}</h2><button class="icon-btn" data-close aria-label="${esc(t('close'))}">✕</button></header>
           <div class="panel-body">
             <h3>${esc(t('settings.view'))}</h3>
-            <div class="seg" data-k="view">
+            <div class="seg wrap" data-k="view">
               <button data-v="first">${esc(t('view.first'))}</button>
+              <button data-v="third">${esc(t('view.third'))}</button>
               <button data-v="overview">${esc(t('view.overview'))}</button>
             </div>
             <h3>${esc(t('settings.sound'))}</h3>
@@ -453,6 +466,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
             </div>
             <button class="btn primary wide" data-resume>${esc(t('menu.resume'))}</button>
             <button class="btn danger wide" data-leave>${esc(t('menu.leave'))}</button>
+            <p class="version muted small center">${esc(t('menu.version', { v: APP_VERSION }))}</p>
           </div>
         </section>`);
       const sync = () => {
@@ -464,7 +478,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       m.querySelector('[data-close]')!.addEventListener('click', () => closePanel());
       m.querySelector('[data-resume]')!.addEventListener('click', () => closePanel());
       m.querySelector('[data-k="view"]')!.addEventListener('click', (e) => {
-        const v = (e.target as HTMLElement).closest<HTMLElement>('[data-v]')?.dataset.v as 'first' | 'overview' | undefined;
+        const v = (e.target as HTMLElement).closest<HTMLElement>('[data-v]')?.dataset.v as 'first' | 'third' | 'overview' | undefined;
         if (!v) return;
         saveSettings({ ...loadSettings(), view: v });
         world.setView(v);

@@ -41,9 +41,11 @@ export interface Office {
   bell: THREE.Group;
 }
 
+// 10 γραφεία σε 3 σειρές (4 + 3 + 3), με διαδρόμους ανάμεσα για όσους περπατούν.
 const DESKS: [number, number][] = [
-  [-5, -1.6], [0, -1.6], [5, -1.6],
-  [-5, 2.6], [0, 2.6], [5, 2.6],
+  [-5.1, -2.0], [-1.7, -2.0], [1.7, -2.0], [5.1, -2.0],
+  [-3.6, 1.6], [0, 1.6], [3.6, 1.6],
+  [-3.6, 5.0], [0, 5.0], [3.6, 5.0],
 ];
 
 function box(color: string, sx: number, sy: number, sz: number, x: number, y: number, z: number, shadow = true) {
@@ -68,7 +70,7 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   floor.receiveShadow = true;
   g.add(floor);
   // ταβάνι με φωτιστικά
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), mat('#4A5266'));
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshBasicMaterial({ color: '#2B3242' }));
   ceil.rotation.x = Math.PI / 2;
   ceil.position.y = ROOM.height;
   g.add(ceil);

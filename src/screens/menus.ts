@@ -156,7 +156,7 @@ export const settingsScreen: Screen = (root) => {
     <main class="narrow">
       <header class="page-head"><button class="icon-btn" data-back aria-label="${esc(t('back'))}">←</button><h1>${esc(t('settings.title'))}</h1></header>
       <h3>${esc(t('settings.lang'))}</h3>${seg('lang', [['auto', t('settings.lang.auto')], ['el', 'Ελληνικά'], ['en', 'English']])}
-      <h3>${esc(t('settings.view'))}</h3>${seg('view', [['first', t('view.first')], ['overview', t('view.overview')]])}
+      <h3>${esc(t('settings.view'))}</h3>${seg('view', [['first', t('view.first')], ['third', t('view.third')], ['overview', t('view.overview')]])}
       <h3>${esc(t('settings.quality'))}</h3>${seg('quality', [['low', t('quality.low')], ['high', t('quality.high')]])}
       <h3>${esc(t('settings.sound'))}</h3>${seg('sound', [['true', t('on')], ['false', t('off')]])}
       <h3>${esc(t('settings.motion'))}</h3>${seg('reduceMotion', [['true', t('on')], ['false', t('off')]])}

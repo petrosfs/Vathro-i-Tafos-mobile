@@ -3,7 +3,7 @@
 <p align="center">
   <b>Wall Street edition</b><br>
   Co-op παιχνίδι συναλλαγών σε 3D γραφείο · A co-op trading game in a 3D office<br>
-  1–6 παίκτες online ή solo · 1–6 players online or solo
+  1–10 παίκτες online ή solo · 1–10 players online or solo
 </p>
 
 <p align="center">
@@ -29,7 +29,7 @@
 
 ### Τι είναι
 
-Εσύ και έως 5 φίλοι ανοίγετε ένα hedge fund στη Wall Street σχεδόν άφραγκοι. Έχετε **ένα κοινό ταμείο**:
+Εσύ και έως 9 φίλοι ανοίγετε ένα hedge fund στη Wall Street σχεδόν άφραγκοι. Έχετε **ένα κοινό ταμείο**:
 το κέρδος του ενός σώζει την ομάδα, η ζημιά του άλλου τη βουλιάζει. Κάθε μέρα κρατάει λίγα λεπτά και έχει
 **στόχο κέρδους** που μεγαλώνει. Αν τον πιάσετε, ψωνίζετε από το κατάστημα αντικείμενα που χειραγωγούν την
 αγορά. Αν αποτύχετε, το fund κλείνει: **στον τάφο**. Αν αντέξετε όλες τις μέρες: **στο βάθρο**.
@@ -39,8 +39,9 @@
 
 ### Χαρακτηριστικά
 
-- **3D γραφείο** με γραφεία, οθόνες, μεγάλο πίνακα τιμών και μηχάνημα καταστήματος. Δύο κάμερες, από τις
-  ρυθμίσεις: **πρώτο πρόσωπο** (περπατάς με WASD/ποντίκι ή joystick στο κινητό) ή **σταθερή από ψηλά**.
+- **3D γραφείο** με γραφεία, οθόνες, μεγάλο πίνακα τιμών και μηχάνημα καταστήματος. Τρεις κάμερες, από τις
+  ρυθμίσεις: **πρώτο πρόσωπο**, **τρίτο πρόσωπο** (περπατάς με WASD/ποντίκι ή joystick στο κινητό, E για
+  τερματικό, Esc για μενού) ή **σταθερή από ψηλά**.
 - **8 φανταστικές μετοχές** με δική τους «προσωπικότητα», τάσεις μέσα στη μέρα, **ειδήσεις** που βγαίνουν
   λίγο πριν κινηθεί η τιμή, **φήμες** που μπορεί να βγουν ανάποδα, και **κραχ**.
 - **17 αντικείμενα**: εσωτερική πληροφορία, φήμη στα social, πανικός στο φόρουμ, αναστολή διαπραγμάτευσης,
@@ -78,7 +79,7 @@
 - **28 τεστ** (Vitest), με προσομοιώσεις χιλιάδων τυχαίων κινήσεων που ελέγχουν ότι το ταμείο δεν γίνεται
   ποτέ αρνητικό και ότι δεν χάνεται θέση.
 - Κατά την ανάπτυξη, **δοκιμές σε πραγματικό browser** (Playwright) με τοπικό Firebase emulator: παρτίδες
-  4 παικτών, αλλαγή host στη μέση της μέρας, επανασύνδεση μετά από ανανέωση, επιστροφή στο δωμάτιο.
+  10 παικτών, αλλαγή host στη μέση της μέρας, επανασύνδεση μετά από ανανέωση, επιστροφή στο δωμάτιο.
 
 ### Δομή του κώδικα
 
@@ -117,7 +118,7 @@ npm run build   # build στον φάκελο dist
 
 ### What it is
 
-You and up to 5 friends open a Wall Street hedge fund with almost no money. You share **one balance**: one
+You and up to 9 friends open a Wall Street hedge fund with almost no money. You share **one balance**: one
 player's profit saves the team, another's loss sinks it. Each day lasts a few minutes and has a growing
 **profit quota**. Hit it and you buy items that manipulate the market. Miss it and the fund closes: **into the
 grave**. Survive every day: **onto the podium**.
@@ -127,8 +128,9 @@ phone or a computer, with no install and no account.
 
 ### Features
 
-- **3D office** with desks, monitors, a big price board and a shop machine. Two cameras in settings:
-  **first person** (walk with WASD/mouse, or a joystick on phones) or a **fixed overhead view**.
+- **3D office** with desks, monitors, a big price board and a shop machine. Three cameras in settings:
+  **first person**, **third person** (walk with WASD/mouse or a joystick on phones, E for the terminal, Esc for
+  the menu) or a **fixed overhead view**.
 - **8 fictional stocks** with their own personalities, intraday trends, **headlines** that land just before
   the price moves, **rumors** that may go the other way, and **crashes**.
 - **17 items**: insider tip, social media hype, forum panic, trading halt, ×3 leverage, express loan, coffee
@@ -163,7 +165,7 @@ default to the fixed camera and light graphics.
 **Quality.**
 - **28 tests** (Vitest), with simulations of thousands of random moves checking that the balance never goes
   negative and no position is lost.
-- During development, **real-browser tests** (Playwright) against a local Firebase emulator: 4-player games, a
+- During development, **real-browser tests** (Playwright) against a local Firebase emulator: 10-player games, a
   host change mid-day, rejoining after a refresh, returning to the room.
 
 ### Running locally

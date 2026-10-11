@@ -9,6 +9,8 @@ import { sfx } from '../audio';
 export class ShopPanel {
   readonly el: HTMLElement;
   private lastRev = -1;
+  private lastBody = '';
+  private lastFoot = '';
 
   constructor(private g: GameController, onClose: () => void, private onForce: (() => void) | null) {
     this.el = h(`
@@ -71,7 +73,7 @@ export class ShopPanel {
     const here = s.order.filter((u) => this.g.t.isConnected(u) && s.players[u]);
     const waiting = here.filter((u) => !s.players[u].ready).map((u) => s.players[u].name);
     const cost = rerollCost(s);
-    this.el.querySelector('.panel-body')!.innerHTML = `
+    const body = `
       ${result}
       <div class="shop-stats">
         <div><small>${esc(t('shop.next', { d: s.day }))}</small><b>${money(s.quota)}</b></div>
@@ -82,12 +84,21 @@ export class ShopPanel {
       <button class="btn ghost" data-act="reroll" ${s.coins >= cost ? '' : 'disabled'}>↻ ${esc(t('shop.reroll', { c: `🪙 ${cost}` }))}</button>
       <h3>${esc(t('shop.inv'))}</h3><div class="pills">${inv}</div>
       <h3>${esc(t('shop.perks'))}</h3><div class="pills">${perks}</div>`;
+    // Ξαναζωγραφίζουμε μόνο ό,τι άλλαξε, για να μη «χάνονται» πατήματα σε κουμπιά που ξαναφτιάχνονται.
+    if (body !== this.lastBody) {
+      this.lastBody = body;
+      this.el.querySelector('.panel-body')!.innerHTML = body;
+    }
     const showForce = this.onForce && this.g.t.hostUid() === this.g.uid && waiting.length > 0 && me?.ready;
-    this.el.querySelector('.panel-foot')!.innerHTML = `
+    const foot = `
       ${this.g.t.online && waiting.length ? `<p class="muted small">${esc(t('shop.waiting', { names: waiting.join(', ') }))}</p>` : ''}
       <div class="foot-btns">
         ${showForce ? `<button class="btn ghost" data-act="force">${esc(t('shop.force'))}</button>` : ''}
         <button class="btn ${me?.ready ? 'ghost' : 'primary'}" data-act="ready">${esc(me?.ready ? t('shop.unready') : t('shop.ready'))}</button>
       </div>`;
+    if (foot !== this.lastFoot) {
+      this.lastFoot = foot;
+      this.el.querySelector('.panel-foot')!.innerHTML = foot;
+    }
   }
 }

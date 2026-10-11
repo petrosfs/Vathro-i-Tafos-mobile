@@ -1,5 +1,5 @@
 // Κωδικοί δωματίων (χωρίς εξάρτηση από το Firebase, για να φορτώνει γρήγορα η αρχική).
-export const MAX_ROOM_PLAYERS = 6;
+export const MAX_ROOM_PLAYERS = 10;
 /** Χωρίς χαρακτήρες που μπερδεύονται (0/O, 1/I). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const CODE_RE = /^[A-HJ-NP-Z2-9]{4}$/;

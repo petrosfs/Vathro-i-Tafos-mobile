@@ -248,4 +248,6 @@ export class Avatar {
 }
 
 /** Χρώματα ομάδας για τα ονόματα και τις θέσεις στο γραφείο. */
-export const PLAYER_COLORS = ['#F5C542', '#4FC3F7', '#FF7A7A', '#7CE38B', '#C792EA', '#FF9F43'];
+export const PLAYER_COLORS = [
+  '#F5C542', '#4FC3F7', '#FF7A7A', '#7CE38B', '#C792EA', '#FF9F43', '#F06292', '#4DD0C4', '#B0D45A', '#A9B8C9',
+];

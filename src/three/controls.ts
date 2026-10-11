@@ -19,6 +19,8 @@ export class FirstPerson {
   private knobEl: HTMLElement;
   private offs: (() => void)[] = [];
   onInteract: () => void = () => {};
+  onEscape: () => void = () => {};
+  private releasing = false;
 
   constructor(private canvas: HTMLCanvasElement, private sensitivity: () => number) {
     this.joyEl = document.createElement('div');
@@ -41,6 +43,11 @@ export class FirstPerson {
     on(window, 'blur', () => this.keys.clear());
     on(canvas, 'click', () => {
       if (this.enabled && !isCoarse() && document.pointerLockElement !== canvas) canvas.requestPointerLock?.();
+    });
+    // Με κλειδωμένο ποντίκι ο browser κρατά το Esc για τον εαυτό του: όταν ξεκλειδώνει μόνο του, ανοίγουμε το μενού.
+    on(document, 'pointerlockchange', () => {
+      if (document.pointerLockElement !== canvas && this.enabled && !this.releasing) this.onEscape();
+      this.releasing = false;
     });
     on(document, 'mousemove', (e: MouseEvent) => {
       if (document.pointerLockElement !== canvas || !this.enabled) return;
@@ -108,7 +115,10 @@ export class FirstPerson {
       this.keys.clear();
       this.joy = { x: 0, y: 0, id: -1, ox: 0, oy: 0 };
       this.joyEl.hidden = true;
-      if (document.pointerLockElement === this.canvas) document.exitPointerLock?.();
+      if (document.pointerLockElement === this.canvas) {
+        this.releasing = true;
+        document.exitPointerLock?.();
+      }
     }
   }
 
@@ -151,7 +161,10 @@ export class FirstPerson {
   dispose() {
     this.offs.forEach((f) => f());
     this.joyEl.remove();
-    if (document.pointerLockElement === this.canvas) document.exitPointerLock?.();
+    if (document.pointerLockElement === this.canvas) {
+      this.releasing = true;
+      document.exitPointerLock?.();
+    }
   }
 }
 

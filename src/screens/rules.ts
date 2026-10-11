@@ -6,7 +6,7 @@ import { STOCKS } from '../sim/stocks';
 
 const BODY = {
   el: `
-    <p>Εσύ και έως 5 φίλοι ανοίγετε ένα hedge fund στη Wall Street με ελάχιστα λεφτά. Έχετε <b>ένα κοινό ταμείο</b>: το κέρδος του ενός σώζει την ομάδα, η ζημιά του άλλου τη βουλιάζει.</p>
+    <p>Εσύ και έως 9 φίλοι ανοίγετε ένα hedge fund στη Wall Street με ελάχιστα λεφτά. Έχετε <b>ένα κοινό ταμείο</b>: το κέρδος του ενός σώζει την ομάδα, η ζημιά του άλλου τη βουλιάζει.</p>
     <h3>Η μέρα</h3>
     <ul>
       <li>Κάθε μέρα κρατάει 3 ή 5 λεπτά. Χτυπάει το καμπανάκι και η αγορά ανοίγει.</li>
@@ -29,7 +29,7 @@ const BODY = {
     <h3>Κατάστημα</h3>
     <p>Ανάμεσα στις μέρες ξοδεύετε τα νομίσματα. Τα <b>αναλώσιμα</b> μπαίνουν στην τσέπη όποιου τα αγοράζει (ως 4) και χρησιμοποιούνται μέσα στη μέρα. Τα <b>προνόμια</b> ισχύουν για όλη την ομάδα ως το τέλος.</p>`,
   en: `
-    <p>You and up to 5 friends open a Wall Street hedge fund with almost no money. You share <b>one balance</b>: one player’s profit saves the team, another’s loss sinks it.</p>
+    <p>You and up to 9 friends open a Wall Street hedge fund with almost no money. You share <b>one balance</b>: one player’s profit saves the team, another’s loss sinks it.</p>
     <h3>The day</h3>
     <ul>
       <li>Each day lasts 3 or 5 minutes. The bell rings and the market opens.</li>

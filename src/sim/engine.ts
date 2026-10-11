@@ -156,7 +156,7 @@ export type Prices = (stock: number, tick: number) => number;
 
 export const MAX_POSITIONS = 8;
 export const START_COINS = 4;
-const LOG_KEEP = 40;
+const LOG_KEEP = 25;
 
 export const feeRate = (s: GameState) => (s.perks.includes('fees') ? 0.001 : 0.005);
 
@@ -170,8 +170,10 @@ const QUOTA: Record<Difficulty, { q0: number; g: number }> = {
 export function quotaFor(s: GameState, day = s.day): number {
   const { q0, g } = QUOTA[s.config.difficulty];
   const n = Math.max(1, s.order.length);
+  // Το ταμείο είναι κοινό: περισσότεροι παίκτες βοηθούν, αλλά όχι γραμμικά.
+  const crowd = 1 + 0.15 * Math.min(n - 1, 5) + 0.05 * Math.max(0, n - 6);
   const lenMul = s.config.dayLen / 600;
-  const raw = s.config.startCash * q0 * Math.pow(g, day - 1) * (1 + 0.15 * (n - 1)) * (0.6 + 0.4 * lenMul) *
+  const raw = s.config.startCash * q0 * Math.pow(g, day - 1) * crowd * (0.6 + 0.4 * lenMul) *
     (s.perks.includes('mentor') ? 0.9 : 1);
   const step = raw < 2000 ? 10 : raw < 20000 ? 50 : 100;
   return Math.round(raw / step) * step;

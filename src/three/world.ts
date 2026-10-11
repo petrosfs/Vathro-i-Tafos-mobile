@@ -4,10 +4,10 @@ import type { Look } from '../sim/engine';
 import type { Pose } from '../net/transport';
 import { Avatar, mat, PLAYER_COLORS } from './avatar';
 import { FirstPerson, collide } from './controls';
-import { buildOffice, type Interactable, type Office } from './office';
+import { buildOffice, ROOM, type Interactable, type Office } from './office';
 import { canvasTexture, drawBoard, drawMonitor, drawTombstone, type BoardData } from './textures';
 
-export type ViewMode = 'first' | 'overview';
+export type ViewMode = 'first' | 'third' | 'overview';
 
 export interface WorldOptions {
   view: ViewMode;
@@ -48,6 +48,8 @@ export class World {
   private tagK = 1;
   onFrame: (dt: number) => void = () => {};
   onInteract: () => void = () => {};
+  /** Ο παίκτης έφυγε από το «κλείδωμα» του ποντικιού με Esc. */
+  onEscape: () => void = () => {};
 
   constructor(private container: HTMLElement, private opts: WorldOptions) {
     this.view = opts.view;
@@ -71,9 +73,10 @@ export class World {
 
   setView(v: ViewMode) {
     this.view = v;
-    if (v === 'first' && !this.fp) {
+    if (v !== 'overview' && !this.fp) {
       this.fp = new FirstPerson(this.renderer.domElement, this.opts.sensitivity);
       this.fp.onInteract = () => this.onInteract();
+      this.fp.onEscape = () => this.onEscape();
       const seat = this.mySeat();
       this.fp.pos.set(seat.x, 0, seat.z + 0.9);
       this.fp.yaw = 0;
@@ -82,7 +85,7 @@ export class World {
       this.fp.dispose();
       this.fp = null;
     }
-    this.avatars.get(this.myUid)?.setVisible(v === 'overview' || !!this.ending);
+    this.avatars.get(this.myUid)?.setVisible(v !== 'first' || !!this.ending);
   }
 
   private mySeat() {
@@ -113,7 +116,7 @@ export class World {
         a.anim = 'sit';
         if (p.uid === this.myUid) {
           a.showTag(false);
-          a.setVisible(this.view === 'overview');
+          a.setVisible(this.view !== 'first');
         }
         a.setTagScale(this.tagK);
         this.avatars.set(p.uid, a);
@@ -232,7 +235,7 @@ export class World {
     }
     this.updateEnding(dt);
     this.updateCamera(dt, now);
-    const tagK = this.ending ? 1 : this.fp ? 1 : this.camera.aspect < 1 ? 2.4 : 1.5;
+    const tagK = this.ending || this.fp ? 1 : this.camera.aspect < 1 ? 1.9 : 1.5;
     if (tagK !== this.tagK) {
       this.tagK = tagK;
       for (const a of this.avatars.values()) a.setTagScale(tagK);
@@ -254,6 +257,28 @@ export class World {
       this.camera.updateProjectionMatrix();
       return;
     }
+    if (this.fp && this.view === 'third') {
+      // τρίτο πρόσωπο: η κάμερα ακολουθεί από πίσω και λίγο πάνω από τον παίκτη
+      this.camera.fov = 66;
+      this.camera.updateProjectionMatrix();
+      const { yaw, pitch, pos } = this.fp;
+      const fx = -Math.sin(yaw) * Math.cos(pitch);
+      const fy = Math.sin(pitch);
+      const fz = -Math.cos(yaw) * Math.cos(pitch);
+      const dist = 3.2;
+      const tx = pos.x;
+      const ty = 1.55;
+      const tz = pos.z;
+      let cx = tx - fx * dist;
+      let cy = ty - fy * dist + 0.7;
+      let cz = tz - fz * dist;
+      cx = Math.max(ROOM.minX + 0.2, Math.min(ROOM.maxX - 0.2, cx));
+      cz = Math.max(ROOM.minZ + 0.2, Math.min(ROOM.maxZ - 0.2, cz));
+      cy = Math.max(0.5, Math.min(ROOM.height - 0.2, cy));
+      this.camera.position.set(cx, cy, cz);
+      this.camera.lookAt(tx + fx * 2, ty + fy * 2 + 0.2, tz + fz * 2);
+      return;
+    }
     if (this.fp) {
       this.camera.fov = 70;
       this.camera.updateProjectionMatrix();
@@ -267,11 +292,11 @@ export class World {
     const sway = this.opts.reduceMotion ? 0 : Math.sin(now / 5000) * 0.4;
     if (portrait) {
       // από ψηλά (μέσα από το ταβάνι, που δεν φαίνεται από πάνω) για να χωράνε όλα τα γραφεία
-      this.camera.position.set(sway * 0.3, 21, 5.5);
-      this.camera.lookAt(0, 0, -1.6);
+      this.camera.position.set(sway * 0.3, 23, 5.8);
+      this.camera.lookAt(0, 0, -1.4);
     } else {
-      this.camera.position.set(sway, 7.6, 7.6);
-      this.camera.lookAt(0, 0.6, -2.2);
+      this.camera.position.set(sway, 10, 7.7);
+      this.camera.lookAt(0, 0, -1.4);
     }
   }
 
@@ -332,7 +357,8 @@ export class World {
       for (const p of this.office.lights.panels) (p.material as THREE.MeshBasicMaterial).color.set('#552222');
       const ids = ranking.length ? ranking : [this.myUid];
       ids.forEach((uid, i) => {
-        const x = (i - (ids.length - 1) / 2) * 1.5;
+        const gap = Math.min(1.5, 11 / Math.max(1, ids.length));
+        const x = (i - (ids.length - 1) / 2) * gap;
         const stone = new THREE.Group();
         const tex = canvasTexture(256, 320);
         drawTombstone(tex.ctx, this.players.get(uid)?.name ?? '');
