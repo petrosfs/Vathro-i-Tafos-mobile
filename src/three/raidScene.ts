@@ -1,6 +1,7 @@
 // Η σύλληψη: σειρήνες, ελικόπτερο με ντουντούκα έξω από τα παράθυρα, η πόρτα σπάει, SWAT μπαίνουν
 // από την πόρτα και πηδάνε μέσα από τα τζάμια, χέρια ψηλά, χειροπέδες, και μετά… κελί. Καρτουνίστικο.
 import * as THREE from 'three';
+import { modelsReady } from './modelRig';
 import { Avatar, mat } from './avatar';
 import { gun } from './eodScene';
 import { ROOM } from './office';
@@ -118,8 +119,17 @@ export class RaidScene {
 
   private makeSwat(k: number): Avatar {
     const look: Look = { suit: 6, skin: (k * 3) % 6, hair: 5, hairColor: 0, hat: 0, tie: 6, glasses: 2 };
-    const a = new Avatar(look, 'SWAT', '#1E3A8A');
+    const a = new Avatar(look, 'SWAT', '#1E3A8A', { swat: true });
     a.showTag(false);
+    if (modelsReady()) {
+      // το μοντέλο SWAT έχει ήδη στολή και γιλέκο· μόνο κράνος στο κεφάλι
+      const h = this.own(new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10, 0, Math.PI * 2, 0, Math.PI / 1.7), mat('#111418')));
+      h.position.set(0, 0.06, 0);
+      h.scale.setScalar(1.05);
+      a.headGroup.add(h);
+      a.hold(this.own(gun()));
+      return a;
+    }
     // κράνος και γιλέκο
     const helmet = this.own(new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10, 0, Math.PI * 2, 0, Math.PI / 1.7), mat('#111418')));
     helmet.position.set(0, 1.72, -0.01);

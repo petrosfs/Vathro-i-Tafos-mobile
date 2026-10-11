@@ -11,6 +11,7 @@ import { RaidScene } from './raidScene';
 import { makeMoneyGun, MoneyFx } from './moneyFx';
 import { SlotMachine } from './slotMachine';
 import { NewsTv } from './newsTv';
+import { LedTicker } from './ledTicker';
 import type { SlotState } from '../sim/slot';
 import type { DecorId, UpgradeId } from '../sim/office';
 import { FirstPerson, collide } from './controls';
@@ -91,6 +92,7 @@ export class World {
   private aquarium: THREE.Group | null = null;
   private slot: SlotMachine | null = null;
   private tv: NewsTv;
+  private led = new LedTicker(ROOM.maxX - ROOM.minX - 0.4);
   private score: { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D };
   private scoreKey = '';
 
@@ -142,6 +144,11 @@ export class World {
     this.tv.group.position.set(5.85, 2.3, ROOM.minZ + 0.1);
     this.tv.group.visible = false;
     this.scene.add(this.tv.group);
+    // κυλιόμενη μπάρα τιμών πάνω από τα παράθυρα (Wall Street και ρετιρέ)
+    this.led.group.position.set(0, 4.0, ROOM.maxZ - 0.06);
+    this.led.group.rotation.y = Math.PI;
+    this.led.group.visible = false;
+    this.scene.add(this.led.group);
     // λευκό περίγραμμα σε ό,τι μπορείς να χρησιμοποιήσεις όταν είσαι κοντά (οθόνη γραφείου, κατάστημα)
     const line = new THREE.MeshBasicMaterial({ color: '#FFFFFF', side: THREE.BackSide });
     this.outlines = this.office.deskScreens.map((list) => {
@@ -464,6 +471,7 @@ export class World {
   setBoard(d: BoardData) {
     this.lastBoard = d;
     this.tv.setData(d);
+    this.led.setRows(d.rows);
     // στο γκαράζ δεν υπάρχει τηλεόραση: ο πίνακας δίνει περισσότερο χώρο στις ειδήσεις
     drawBoard(this.office.board.ctx, { ...d, bigNews: (this.venueLevel ?? 0) === 0 });
     this.office.board.tex.needsUpdate = true;
@@ -536,6 +544,7 @@ export class World {
     const v = buildVenue(level, this.opts.quality === 'high');
     this.venue = v;
     this.tv.group.visible = level >= 1;
+    this.led.group.visible = level === 2;
     // μικρότερος πίνακας στο γκαράζ
     const k = level === 0 ? 0.8 : 1;
     for (const m of this.office.boardMeshes) {
@@ -552,7 +561,8 @@ export class World {
     const { hemi, sun } = this.office.lights;
     hemi.color.set(v.light.sky);
     hemi.groundColor.set(v.light.ground);
-    hemi.intensity = v.light.hemi;
+    // λεία σκίαση: λίγο περισσότερο φως από παντού, για φωτεινό, «καρτούν» αποτέλεσμα
+    hemi.intensity = v.light.hemi * 1.2;
     sun.color.set(v.light.sun);
     sun.intensity = v.light.sunI;
     sun.position.set(...v.light.sunPos);
@@ -803,6 +813,7 @@ export class World {
     });
     this.slot?.update(performance.now());
     this.tv.update(performance.now());
+    this.led.update(dt);
     this.updateMoneyGuns(performance.now());
     this.money.update(dt);
     if (this.aquarium) animateAquarium(this.aquarium, now / 1000);

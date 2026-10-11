@@ -649,6 +649,34 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
     inside.box(m, 0.03, 0.12, D, ROOM.minX + 0.015, 0.06, 0);
     inside.box(m, 0.03, 0.12, D, ROOM.maxX - 0.015, 0.06, 0);
   };
+  /**
+   * Δίχρωμοι τοίχοι (όπως στα γραφεία των indie παιχνιδιών): σκούρα ζώνη κάτω και μπορντούρα κάτω από το ταβάνι.
+   * Οι ζώνες κάτω μπαίνουν μόνο σε τοίχους χωρίς χαμηλά παράθυρα· η πόρτα (ανατολικά) μένει ελεύθερη.
+   */
+  const bands = (lowM: THREE.Material, lowH: number, topM: THREE.Material, sides: ('N' | 'E' | 'S' | 'W')[], lineM?: THREE.Material, topSides = sides) => {
+    const d = 0.025;
+    const run = (side: 'N' | 'E' | 'S' | 'W', a0: number, a1: number, y0: number, y1: number, m: THREE.Material) => {
+      const len = a1 - a0;
+      const mid = (a0 + a1) / 2;
+      const ym = (y0 + y1) / 2;
+      if (side === 'N') inside.box(m, len, y1 - y0, d, mid, ym, ROOM.minZ + d / 2 + 0.002);
+      if (side === 'S') inside.box(m, len, y1 - y0, d, mid, ym, ROOM.maxZ - d / 2 - 0.002);
+      if (side === 'W') inside.box(m, d, y1 - y0, len, ROOM.minX + d / 2 + 0.002, ym, mid);
+      if (side === 'E') inside.box(m, d, y1 - y0, len, ROOM.maxX - d / 2 - 0.002, ym, mid);
+    };
+    for (const side of ['N', 'E', 'S', 'W'] as const) {
+      const along = side === 'N' || side === 'S';
+      const lo = along ? ROOM.minX : ROOM.minZ;
+      const hi = along ? ROOM.maxX : ROOM.maxZ;
+      if (topSides.includes(side)) run(side, lo, hi, H - 0.28, H, topM);
+      if (!sides.includes(side)) continue;
+      const segs: [number, number][] = side === 'E' ? [[lo, DOOR.z0 - 0.05], [DOOR.z1 + 0.05, hi]] : [[lo, hi]];
+      for (const [a, b] of segs) {
+        run(side, a, b, 0.12, lowH, lowM);
+        if (lineM) run(side, a, b, lowH, lowH + 0.05, lineM);
+      }
+    }
+  };
   /** Πόλη σε πλέγμα γύρω από το κτίριο μας (για τους ψηλούς ορόφους). */
   const city = (ground: number, mats: THREE.Material[], roof: THREE.Material, hMin: number, hMax: number, seed: number, near: number) => {
     const r = rng(seed);
@@ -841,6 +869,7 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
     colliders.push({ minX: 11.2, maxX: 12, minZ: 6.3, maxZ: 6.9 });
     for (const [x, z] of [[-11, -7], [11, -7], [-11, 7]] as [number, number][]) plant(x, z);
     baseboard(lambert('#8A6A4A'));
+    bands(lambert('#9B7A55'), 0.9, lambert('#CFC6B4'), ['N', 'E', 'S', 'W'], lambert('#6E5236'));
 
     // έξω: δρόμος από κάτω, πολυκατοικίες απέναντι, βουνά στον ορίζοντα
     const pave = lambert('#FFFFFF', tex(pavingTex('#B9B3A6')));
@@ -916,10 +945,14 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
       group.add(rug);
       for (const [x, z] of [[-11, -7], [11, -7], [11, 7], [-11, 2.9]] as [number, number][]) plant(x, z, true);
       baseboard(lambert('#D8D2C8'));
+      // ρετιρέ: κόκκινη ζώνη με χρυσή γραμμή
+      bands(lambert('#7A1E24'), 1.0, lambert('#7A1E24'), ['N', 'E'], lambert('#C9A54A'));
     } else {
       for (const x of [-7, 0, 7]) for (const z of [-4, 2]) lightPanel('#FFF4DA', 3, 1, x, z);
       for (const [x, z] of [[-11, -7], [11, -7], [-11, 7], [11, 7], [-11, 2.9]] as [number, number][]) plant(x, z);
       baseboard(lambert('#8C95A3'));
+      // Wall Street: μπλε-γκρι ζώνη κάτω και σκούρα μπορντούρα πάνω
+      bands(lambert('#4A5566'), 0.55, lambert('#3B4452'), ['N', 'E', 'S', 'W']);
     }
 
     // έξω: πόλη σε πλέγμα, το κτίριο μας από κάτω, ουρανός

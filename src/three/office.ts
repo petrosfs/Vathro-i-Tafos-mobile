@@ -46,8 +46,8 @@ export interface Office {
   /** Ομάδα ανά γραφείο για τα διακοσμητικά του παίκτη. */
   deskDecor: THREE.Group[];
   /** Υλικά των γραφείων και του πλαισίου του πίνακα (αλλάζουν με τον χώρο). */
-  deskMats: { top: THREE.MeshToonMaterial; leg: THREE.MeshToonMaterial; chair: THREE.MeshToonMaterial };
-  boardFrame: THREE.MeshToonMaterial;
+  deskMats: { top: THREE.MeshLambertMaterial; leg: THREE.MeshLambertMaterial; chair: THREE.MeshLambertMaterial };
+  boardFrame: THREE.MeshLambertMaterial;
   /** Οι οθόνες κάθε γραφείου (η πρώτη είναι η κύρια) και το κέντρο κάθε γραφείου. */
   deskScreens: THREE.Group[][];
   deskPos: { x: number; z: number }[];

@@ -69,7 +69,7 @@
   μόχλευση ×3, δάνειο-εξπρές, καφές για παράταση, άδεια για short, stop-loss, χρυσό αλεξίπτωτο κ.ά.
 - **Online με φίλους** από οπουδήποτε στον κόσμο, με κωδικό δωματίου ή σύνδεσμο πρόσκλησης. Chat και emotes
   πάνω από τα avatars.
-- **Χαρακτήρας** σε στυλ καρτούν (μεγάλο κεφάλι, χοντρά φρύδια, χέρια με δάχτυλα) με κοστούμι, γραβάτα, μαλλιά
+- **Χαρακτήρες με 3D σώμα** (κοστούμι, χέρια με δάχτυλα, κινήσεις) και καρτούν κεφάλι με κοστούμι, γραβάτα, μαλλιά
   (και αλογοουρά ή καραφλός), μούσι, καπέλο, γυαλιά, μάτια, στόμα και έκφραση.
 - **Πίνακας της μέρας (scoreboard)** στον τοίχο: κέρδος/ζημιά, συναλλαγές και καλύτερη συναλλαγή του καθενός, με κατάταξη.
 - **Νομίσματα κάθε μέρα**: 1 πάντα, 2 με τον στόχο, 3 με τον κουμπαρά, και έξτρα όταν τον ξεπερνάτε.
@@ -195,7 +195,7 @@ phone or a computer, with no install and no account.
   for extra time, short-selling licence, stop-loss, golden parachute and more.
 - **Online with friends** from anywhere in the world, via a room code or an invite link. Chat and emotes over
   the avatars.
-- **Cartoon character** (big head, bold brows, hands with fingers) with suit, tie, hair (including a ponytail or
+- **Characters with a 3D body** (suit, hands with fingers, animations) and a cartoon head with suit, tie, hair (including a ponytail or
   shaved bald), facial hair, hat, glasses, eyes, mouth and expression.
 - **Daily scoreboard** on the wall: each player’s profit/loss, trades and best trade, ranked.
 - **Coins every day**: 1 always, 2 when you hit the quota, 3 with the piggy bank, plus extras for beating it.
@@ -258,3 +258,7 @@ Database**, paste the rules from `database.rules.json`, and put your web app's s
 ---
 
 <p align="center"><sub>Όλες οι εταιρείες και οι ειδήσεις του παιχνιδιού είναι φανταστικές · All companies and headlines in the game are fictional.</sub></p>
+
+---
+
+**Μοντέλα χαρακτήρων / Character models:** «Ultimate Modular Men» από τον Quaternius ([quaternius.com](https://quaternius.com)), άδεια CC0 · by Quaternius, CC0 licence.

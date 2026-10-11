@@ -174,11 +174,7 @@ export class EodScene {
     if (sparkle) {
       // λαμπερό ρούχο στις χορεύτριες
       const glam = new THREE.MeshLambertMaterial({ color: sparkle, emissive: new THREE.Color(sparkle), emissiveIntensity: 0.35 });
-      const suit = (mat('#C9C3B5') as THREE.MeshLambertMaterial).color.getHex();
-      a.group.traverse((o) => {
-        const m = o as THREE.Mesh;
-        if (m.isMesh && (m.material as THREE.MeshLambertMaterial).color?.getHex() === suit) m.material = glam;
-      });
+      a.setOutfit(glam);
     }
     this.group.add(a.group);
     this.extras.push(a);

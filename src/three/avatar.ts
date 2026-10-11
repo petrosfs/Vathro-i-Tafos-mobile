@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import type { Look } from '../sim/engine';
 import { HAIR_COLORS, SKINS, SUITS, TIES } from '../profile';
 import { bubbleTexture, nameTagTexture, speechTexture } from './textures';
+import { ModelRig, modelsReady } from './modelRig';
 
 const geo = {
   box: new THREE.BoxGeometry(1, 1, 1),
@@ -63,8 +64,9 @@ export function toonGradient(): THREE.DataTexture {
 }
 
 /** Υλικό toon (χρώμα και, αν υπάρχει, υφή). */
-export function toon(color: string, map: THREE.Texture | null = null): THREE.MeshToonMaterial {
-  return new THREE.MeshToonMaterial({ color, map, gradientMap: toonGradient() });
+export function toon(color: string, map: THREE.Texture | null = null): THREE.MeshLambertMaterial {
+  // λεία, φωτεινή σκίαση (όπως στα indie «καρτούν» παιχνίδια), χωρίς σκαλοπάτια τόνων
+  return new THREE.MeshLambertMaterial({ color, map });
 }
 
 const matCache = new Map<string, THREE.Material>();
@@ -241,7 +243,17 @@ export class Avatar {
     return this.phase;
   }
 
-  constructor(look: Look, name: string, readonly color: string) {
+  /** Το κεφάλι (για καπέλα/κράνη από έξω). */
+  get headGroup(): THREE.Group {
+    return this.head;
+  }
+
+  /** Σώμα από 3D μοντέλο (αν φορτώθηκε)· αλλιώς ο απλός χαρακτήρας από σχήματα. */
+  private rig: ModelRig | null = null;
+  private lastAnim: Anim = 'idle';
+
+  constructor(look: Look, name: string, readonly color: string, opts: { swat?: boolean } = {}) {
+    const useModel = modelsReady();
     const suit = SUITS[look.suit] ?? SUITS[0];
     const suitDark = shade(suit, 0.72);
     this.suitHex = [new THREE.Color(suit).getHex(), new THREE.Color(suitDark).getHex()];
@@ -252,7 +264,7 @@ export class Avatar {
     const hairC = HAIR_COLORS[look.hairColor] ?? HAIR_COLORS[0];
     const tie = TIES[look.tie] ?? TIES[0];
     // ---- πόδια: ισχίο → μηρός → γόνατο → κνήμη → παπούτσι
-    for (const [hip, knee, x] of [[this.hipL, this.kneeL, -0.1], [this.hipR, this.kneeR, 0.1]] as const) {
+    if (!useModel) for (const [hip, knee, x] of [[this.hipL, this.kneeL, -0.1], [this.hipR, this.kneeR, 0.1]] as const) {
       hip.position.set(x, 0.86, 0);
       hip.add(part(geo.thigh, suitM, 1, 1, 1, 0, -0.2, 0));
       knee.position.set(0, -0.42, 0);
@@ -268,42 +280,44 @@ export class Avatar {
       hip.add(knee);
       this.body.add(hip);
     }
-    this.body.add(part(geo.pelvis, suitM, 1, 1, 0.8, 0, 0.88, 0).rotateZ(Math.PI / 2));
-    // ---- κορμός (στρίβει λίγο στο περπάτημα)
-    this.spine.position.set(0, 0.9, 0);
-    const torso = part(geo.torso, suitM, 1, 1, 0.62, 0, 0.29, 0);
-    this.spine.add(torso);
-    // ζώνη με αγκράφα
-    this.spine.add(part(geo.cyl, '#141414', 0.183, 0.035, 0.183 * 0.64, 0, 0.03, 0));
-    this.spine.add(part(geo.box, '#C9A54A', 0.045, 0.03, 0.01, 0, 0.03, 0.118, false));
-    const front = 0.205 * 0.62 + 0.004;
-    const shirt = part(geo.vee, '#F6F6F4', 1, 1, 1, 0, 0.43, front, false);
-    this.spine.add(shirt);
-    for (const sx of [-1, 1]) {
-      const l = part(geo.lapel, suitDark, sx, 1, 1, sx * 0.075, 0.42, front + 0.002, false);
-      this.spine.add(l);
-    }
-    this.spine.add(part(geo.tie, tie, 1, 1, 1, 0, 0.44, front + 0.004, false));
-    this.spine.add(part(geo.box, shade(tie, 0.8), 0.036, 0.03, 0.012, 0, 0.545, front + 0.006, false));
-    for (const by of [0.27, 0.17]) this.spine.add(part(geo.sphere, '#111', 0.009, 0.009, 0.006, 0.05, by, front + 0.003, false));
-    // γιακάς και λαιμός
-    this.spine.add(part(geo.cyl, '#F6F6F4', 0.07, 0.04, 0.065, 0, 0.585, 0.005));
-    this.spine.add(part(geo.cyl, skin, 0.056, 0.1, 0.056, 0, 0.63, 0));
-    // ώμοι
-    for (const sx of [-1, 1]) this.spine.add(part(geo.sphere, suitM, 0.085, 0.07, 0.08, sx * 0.2, 0.53, 0));
-    // ---- χέρια: ώμος → μπράτσο → αγκώνας → πήχης → μανσέτα → χέρι
-    for (const [sh, el, sx] of [[this.shoulderL, this.elbowL, -1], [this.shoulderR, this.elbowR, 1]] as const) {
-      sh.position.set(sx * 0.255, 0.52, 0);
-      sh.add(part(geo.upperArm, suitM, 1, 1, 1, 0, -0.17, 0));
-      el.position.set(0, -0.33, 0);
-      el.add(part(geo.foreArm, suitM, 1, 1, 1, 0, -0.15, 0));
-      el.add(part(geo.cyl, '#F6F6F4', 0.052, 0.035, 0.052, 0, -0.29, 0));
-      const hand = buildHand(sx, skin);
-      el.add(hand.group);
-      this.hands.push(hand);
-      if (sx === 1) this.handR = hand.group;
-      sh.add(el);
-      this.spine.add(sh);
+    if (!useModel) {
+      this.body.add(part(geo.pelvis, suitM, 1, 1, 0.8, 0, 0.88, 0).rotateZ(Math.PI / 2));
+      // ---- κορμός (στρίβει λίγο στο περπάτημα)
+      this.spine.position.set(0, 0.9, 0);
+      const torso = part(geo.torso, suitM, 1, 1, 0.62, 0, 0.29, 0);
+      this.spine.add(torso);
+      // ζώνη με αγκράφα
+      this.spine.add(part(geo.cyl, '#141414', 0.183, 0.035, 0.183 * 0.64, 0, 0.03, 0));
+      this.spine.add(part(geo.box, '#C9A54A', 0.045, 0.03, 0.01, 0, 0.03, 0.118, false));
+      const front = 0.205 * 0.62 + 0.004;
+      const shirt = part(geo.vee, '#F6F6F4', 1, 1, 1, 0, 0.43, front, false);
+      this.spine.add(shirt);
+      for (const sx of [-1, 1]) {
+        const l = part(geo.lapel, suitDark, sx, 1, 1, sx * 0.075, 0.42, front + 0.002, false);
+        this.spine.add(l);
+      }
+      this.spine.add(part(geo.tie, tie, 1, 1, 1, 0, 0.44, front + 0.004, false));
+      this.spine.add(part(geo.box, shade(tie, 0.8), 0.036, 0.03, 0.012, 0, 0.545, front + 0.006, false));
+      for (const by of [0.27, 0.17]) this.spine.add(part(geo.sphere, '#111', 0.009, 0.009, 0.006, 0.05, by, front + 0.003, false));
+      // γιακάς και λαιμός
+      this.spine.add(part(geo.cyl, '#F6F6F4', 0.07, 0.04, 0.065, 0, 0.585, 0.005));
+      this.spine.add(part(geo.cyl, skin, 0.056, 0.1, 0.056, 0, 0.63, 0));
+      // ώμοι
+      for (const sx of [-1, 1]) this.spine.add(part(geo.sphere, suitM, 0.085, 0.07, 0.08, sx * 0.2, 0.53, 0));
+      // ---- χέρια: ώμος → μπράτσο → αγκώνας → πήχης → μανσέτα → χέρι
+      for (const [sh, el, sx] of [[this.shoulderL, this.elbowL, -1], [this.shoulderR, this.elbowR, 1]] as const) {
+        sh.position.set(sx * 0.255, 0.52, 0);
+        sh.add(part(geo.upperArm, suitM, 1, 1, 1, 0, -0.17, 0));
+        el.position.set(0, -0.33, 0);
+        el.add(part(geo.foreArm, suitM, 1, 1, 1, 0, -0.15, 0));
+        el.add(part(geo.cyl, '#F6F6F4', 0.052, 0.035, 0.052, 0, -0.29, 0));
+        const hand = buildHand(sx, skin);
+        el.add(hand.group);
+        this.hands.push(hand);
+        if (sx === 1) this.handR = hand.group;
+        sh.add(el);
+        this.spine.add(sh);
+      }
     }
     // ---- κεφάλι
     // λίγο μεγαλύτερο κεφάλι: πιο «καρτουνίστικες» αναλογίες
@@ -349,9 +363,20 @@ export class Avatar {
     this.addHair(look.hair, hairC);
     this.addHat(look.hat);
     this.addGlasses(look.glasses);
-    this.spine.add(this.head);
-    this.body.add(this.spine);
-    this.group.add(this.body);
+    if (useModel) {
+      // σώμα από το 3D μοντέλο· το κεφάλι ακολουθεί το κόκαλο του κεφαλιού
+      const suitLam = new THREE.MeshLambertMaterial({ color: suit });
+      this.suitMats.add(suitLam);
+      this.rig = new ModelRig(this.body, this.head, { suit: suitLam, tie, skin }, !!opts.swat);
+      this.head.scale.setScalar(1.32);
+      this.head.add(part(geo.cyl, skin, 0.052, 0.12, 0.052, 0, -0.2, -0.01));
+      this.body.add(this.head);
+      this.group.add(this.body);
+    } else {
+      this.spine.add(this.head);
+      this.body.add(this.spine);
+      this.group.add(this.body);
+    }
     // ετικέτα ονόματος
     this.tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: nameTagTexture(name, color), depthWrite: false, transparent: true }));
     this.tag.scale.set(1.1, 0.275, 1);
@@ -504,6 +529,10 @@ export class Avatar {
 
   /** Αλλάζει το ρούχο (κοστούμι) με άλλο υλικό: φόρμα φυλακής, λαμπερό φόρεμα… */
   setOutfit(m: THREE.Material) {
+    if (this.rig) {
+      for (const mesh of this.rig.suitMeshes) mesh.material = m;
+      return;
+    }
     this.group.traverse((o) => {
       const mesh = o as THREE.Mesh;
       const c = (mesh.material as THREE.MeshLambertMaterial | undefined)?.color;
@@ -546,7 +575,11 @@ export class Avatar {
         w.add(d);
       }
     }
-    this.elbowL.add(w);
+    if (this.rig) {
+      w.position.set(0, 0, 0);
+      w.scale.setScalar(0.85);
+      this.rig.wristL.add(w);
+    } else this.elbowL.add(w);
     this.watch = w;
   }
 
@@ -554,11 +587,13 @@ export class Avatar {
   hold(obj: THREE.Object3D | null) {
     if (this.held) this.held.removeFromParent();
     this.held = obj;
-    if (obj && this.handR) this.handR.add(obj);
+    if (obj && this.rig) this.rig.holdR.add(obj);
+    else if (obj && this.handR) this.handR.add(obj);
   }
 
   /** Η θέση του δεξιού χεριού στον κόσμο (για ό,τι πετάει ή πυροβολεί). */
   handWorld(out = new THREE.Vector3()): THREE.Vector3 {
+    if (this.rig) return this.rig.holdR.getWorldPosition(out);
     return this.handR ? this.handR.getWorldPosition(out) : this.group.getWorldPosition(out).setY(1.3);
   }
 
@@ -624,6 +659,7 @@ export class Avatar {
     const t: Pose = { ...ZERO };
     const sitting = this.anim === 'sit';
     const anim = this.over && now < this.over.until ? this.over.anim : this.anim;
+    this.lastAnim = anim;
     if (anim !== 'fall') this.fallT = 0;
     switch (anim) {
       case 'idle':
@@ -855,6 +891,11 @@ export class Avatar {
     const k = this.anim === 'walk' ? 1 - Math.exp(-dt * 22) : 1 - Math.exp(-dt * 10);
     const c = this.cur;
     for (const key of Object.keys(c) as (keyof Pose)[]) c[key] += (target[key] - c[key]) * k;
+    if (this.rig) {
+      this.rig.apply(c, this.lastAnim, dt);
+      this.blink(dt);
+      return;
+    }
     this.body.position.y = c.bodyY;
     this.body.rotation.x = c.bodyX;
     this.spine.rotation.y = c.spine;
@@ -869,7 +910,11 @@ export class Avatar {
     this.head.rotation.set(c.headX, c.headY, 0);
     if (this.hands[0]) curlHand(this.hands[0], c.fistL);
     if (this.hands[1]) curlHand(this.hands[1], c.fistR, c.midR, c.twistR);
-    // ανοιγοκλείσιμο ματιών
+    this.blink(dt);
+  }
+
+  /** Ανοιγοκλείσιμο ματιών. */
+  private blink(dt: number) {
     this.blinkAt -= dt;
     const closed = this.blinkAt < 0.12;
     for (const e of this.eyes) e.scale.y = closed ? 0.15 : 1;
@@ -883,6 +928,7 @@ export class Avatar {
         o.material.dispose();
       }
     });
+    this.rig?.dispose();
     this.group.removeFromParent();
   }
 }

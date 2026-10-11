@@ -2278,3 +2278,12 @@ tr.me td {
 .ptab h3:first-child {
   margin-top: 0.4rem;
 }
+
+.boot {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 2rem;
+  animation: pulse 0.8s ease-in-out infinite alternate;
+}
