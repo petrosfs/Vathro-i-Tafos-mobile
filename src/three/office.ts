@@ -48,6 +48,54 @@ export interface Office {
   /** Υλικά των γραφείων και του πλαισίου του πίνακα (αλλάζουν με τον χώρο). */
   deskMats: { top: THREE.MeshLambertMaterial; leg: THREE.MeshLambertMaterial; chair: THREE.MeshLambertMaterial };
   boardFrame: THREE.MeshLambertMaterial;
+  /** Οι οθόνες κάθε γραφείου (η πρώτη είναι η κύρια) και το κέντρο κάθε γραφείου. */
+  deskScreens: THREE.Group[][];
+  deskPos: { x: number; z: number }[];
+}
+
+export const MAX_DESK_SCREENS = 6;
+
+/** Θέσεις οθονών ανά πλήθος (1–6): [x, y, z, γωνία] σε σχέση με το κέντρο του γραφείου· η πρώτη είναι η κύρια. */
+export const SCREEN_LAYOUT: [number, number, number, number][][] = [
+  [[-0.1, 1.12, -0.21, 0]],
+  [[-0.3, 1.12, -0.21, 0], [0.45, 1.1, -0.15, -0.38]],
+  [[0, 1.12, -0.22, 0], [-0.7, 1.1, -0.13, 0.42], [0.7, 1.1, -0.13, -0.42]],
+  [[0, 1.12, -0.22, 0], [-0.7, 1.1, -0.13, 0.42], [0.7, 1.1, -0.13, -0.42], [0, 1.6, -0.25, 0]],
+  [[0, 1.12, -0.22, 0], [-0.7, 1.1, -0.13, 0.42], [0.7, 1.1, -0.13, -0.42], [-0.37, 1.6, -0.25, 0], [0.37, 1.6, -0.25, 0]],
+  [[0, 1.12, -0.22, 0], [-0.7, 1.1, -0.13, 0.42], [0.7, 1.1, -0.13, -0.42], [-0.72, 1.58, -0.15, 0.42], [0, 1.6, -0.25, 0], [0.72, 1.58, -0.15, -0.42]],
+];
+
+const extraTex: THREE.CanvasTexture[] = [];
+/** Στατική οθόνη με «κεριά» και γραμμές, για τις έξτρα οθόνες (3 παραλλαγές). */
+function extraScreenTex(v: number): THREE.CanvasTexture {
+  if (extraTex[v]) return extraTex[v];
+  const { tex, ctx } = canvasTexture(256, 160);
+  ctx.fillStyle = '#071021';
+  ctx.fillRect(0, 0, 256, 160);
+  ctx.strokeStyle = '#13233F';
+  for (let y = 20; y < 160; y += 28) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(256, y);
+    ctx.stroke();
+  }
+  let p = 80 + v * 10;
+  let seed = 7 + v * 13;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let x = 8; x < 250; x += 9) {
+    const o = p;
+    p = Math.max(20, Math.min(140, p + (rnd() - 0.5 + (v - 1) * 0.08) * 18));
+    const up = p < o;
+    ctx.fillStyle = up ? '#3DDC84' : '#FF5C5C';
+    ctx.fillRect(x, Math.min(o, p), 5, Math.max(2, Math.abs(o - p)));
+    ctx.fillRect(x + 2, Math.min(o, p) - 4, 1, Math.abs(o - p) + 8);
+  }
+  ctx.fillStyle = '#F5C542';
+  ctx.font = '700 14px monospace';
+  ctx.fillText(['VOL', 'RSI', 'MACD'][v], 8, 16);
+  tex.needsUpdate = true;
+  extraTex[v] = tex;
+  return tex;
 }
 
 // 10 γραφεία σε 3 σειρές (4 + 3 + 3), με διαδρόμους ανάμεσα για όσους περπατούν.
@@ -93,6 +141,7 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   const interactables: Interactable[] = [];
   const monitors: Office['monitors'] = [];
   const deskDecor: THREE.Group[] = [];
+  const deskScreens: THREE.Group[][] = [];
   const deskMats = {
     top: new THREE.MeshLambertMaterial({ color: '#6E4B32' }),
     leg: new THREE.MeshLambertMaterial({ color: '#3A2A1E' }),
@@ -109,20 +158,25 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
     g.add(mbox(deskMats.top, 1.9, 0.06, 0.9, x, 0.76, z));
     g.add(mbox(deskMats.leg, 0.06, 0.74, 0.8, x - 0.9, 0.37, z));
     g.add(mbox(deskMats.leg, 0.06, 0.74, 0.8, x + 0.9, 0.37, z));
-    // οθόνες: η κύρια με γράφημα και μια δεύτερη διακοσμητική
+    // οθόνες: η κύρια με ζωντανό γράφημα και ως 5 ακόμα (ανάλογα με τον χώρο και τις αγορές)
     const mon = canvasTexture(256, 160);
-    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.45), new THREE.MeshBasicMaterial({ map: mon.tex }));
-    screen.position.set(x - 0.25, 1.12, z - 0.21);
-    g.add(screen);
-    g.add(box('#111', 0.78, 0.5, 0.04, x - 0.25, 1.12, z - 0.24));
-    g.add(box('#222', 0.06, 0.3, 0.06, x - 0.25, 0.9, z - 0.26));
-    const m2 = box('#111', 0.5, 0.36, 0.04, x + 0.45, 1.06, z - 0.2);
-    m2.rotation.y = -0.35;
-    g.add(m2);
-    const s2 = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.3), new THREE.MeshBasicMaterial({ color: '#12325A' }));
-    s2.position.set(x + 0.44, 1.06, z - 0.175);
-    s2.rotation.y = -0.35;
-    g.add(s2);
+    const screens: THREE.Group[] = [];
+    for (let k = 0; k < MAX_DESK_SCREENS; k++) {
+      const sg = new THREE.Group();
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.47, 0.04), mat('#111'));
+      frame.castShadow = true;
+      sg.add(frame);
+      const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.68, 0.42), new THREE.MeshBasicMaterial({ map: k === 0 ? mon.tex : extraScreenTex((i + k) % 3) }));
+      scr.position.z = 0.021;
+      sg.add(scr);
+      const pole = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1, 0.05), mat('#222'));
+      pole.name = 'pole';
+      sg.add(pole);
+      sg.visible = false;
+      g.add(sg);
+      screens.push(sg);
+    }
+    deskScreens.push(screens);
     monitors.push(mon);
     g.add(box('#2A2A2A', 0.5, 0.02, 0.16, x - 0.2, 0.8, z + 0.12));
     const mug = makeMug(MUG_COLORS[i % MUG_COLORS.length]);
@@ -186,5 +240,6 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   return {
     group: g, board, monitors, seats, colliders, interactables, shopGlow: glow,
     lights: { hemi, sun, panels: [] }, stage: new THREE.Vector3(0, 0, -5), bell, deskDecor, deskMats, boardFrame,
+    deskScreens, deskPos: DESKS.map(([x, z]) => ({ x, z })),
   };
 }

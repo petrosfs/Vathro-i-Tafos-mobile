@@ -4,6 +4,7 @@ import { money, pct, price, signed, t, tr } from '../i18n';
 import { ITEM, TIP_TICKS } from '../sim/items';
 import { EFFECT_LEN } from '../sim/market';
 import { STOCKS } from '../sim/stocks';
+import { screensOf } from '../sim/engine';
 import type { GameController } from '../game/controller';
 import { crashIn, headline, scoopedNews, shownAt, visibleNews } from '../game/news';
 import { drawChart, drawSpark } from './chart';
@@ -18,6 +19,10 @@ export class Terminal {
   private frac = 0.25;
   private tiles = new Map<number, HTMLElement>();
   private tilesKey = '';
+  /** Οι μετοχές στις έξτρα οθόνες (μία ανά αγορασμένη/δωρεάν οθόνη πέρα από την κύρια). */
+  private extra: number[] = [];
+  private extraKey = '';
+  private frame = 0;
   private chart: HTMLCanvasElement;
   private lastRev = -1;
   private posKey = '';
@@ -37,6 +42,7 @@ export class Terminal {
             <canvas class="chart"></canvas>
             <div class="chart-legend" hidden>┄ ${esc(t('term.future'))}</div>
           </div>
+          <div class="extra-charts"></div>
           <div class="trade">
             <div class="amount-row">
               <span class="muted">${esc(t('term.amount'))}</span>
@@ -59,6 +65,23 @@ export class Terminal {
           <div class="feed"></div>
         </div>
       </section>`);
+    const ex = this.el.querySelector('.extra-charts')!;
+    ex.addEventListener('change', (e) => {
+      const sel = e.target as HTMLSelectElement;
+      this.extra[Number(sel.dataset.k)] = Number(sel.value);
+      this.extraKey = '';
+      this.update(true);
+    });
+    ex.addEventListener('click', (e) => {
+      // πάτημα σε έξτρα γράφημα: γίνεται το κύριο (ανταλλαγή)
+      const box = (e.target as HTMLElement).closest<HTMLElement>('[data-k]');
+      if (!box || (e.target as HTMLElement).tagName === 'SELECT' || (e.target as HTMLElement).tagName === 'OPTION') return;
+      const k = Number(box.dataset.k);
+      [this.extra[k], this.selected] = [this.selected, this.extra[k]];
+      this.extraKey = '';
+      sfx.click();
+      this.update(true);
+    });
     this.el.querySelector('.tiles')!.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-stock]');
       if (!b) return;
@@ -129,6 +152,8 @@ export class Terminal {
       news: visibleNews(s, tick).filter((n) => n.stock === sel || n.stock === -1).map((n) => ({ tick: Math.max(0, shownAt(s, n)), dir: n.dir })),
       halts: s.effects.filter((e) => e.kind === 'halt' && e.stock === sel).map((e) => ({ from: e.start, to: e.start + EFFECT_LEN.halt })),
     });
+    // οι έξτρα οθόνες ανανεώνονται πιο αραιά
+    if (this.extra.length && this.frame++ % 3 === 0) this.drawExtra();
   }
 
   /** Οι μετοχές του χρηματιστηρίου αλλάζουν με τις εισαγωγές και τις χρεωκοπίες. */
@@ -148,6 +173,53 @@ export class Terminal {
     if (!listed.includes(this.selected)) this.selected = listed[0] ?? 0;
   }
 
+  /** Έξτρα γραφήματα: όσες οθόνες έχει το γραφείο σου πέρα από την κύρια. */
+  private syncExtra() {
+    const s = this.g.s!;
+    const n = Math.max(0, screensOf(s, this.g.me() ?? undefined) - 1);
+    const listed = s.listed ?? [];
+    // κράτα όσες ισχύουν, συμπλήρωσε με τις επόμενες μετοχές
+    this.extra = this.extra.filter((id) => listed.includes(id) && id !== this.selected).slice(0, n);
+    for (const id of listed) {
+      if (this.extra.length >= n) break;
+      if (id !== this.selected && !this.extra.includes(id)) this.extra.push(id);
+    }
+    const key = `${n}|${this.extra.join(',')}|${listed.join(',')}|${this.selected}`;
+    if (key === this.extraKey) return;
+    this.extraKey = key;
+    const box = this.el.querySelector('.extra-charts')!;
+    box.innerHTML = this.extra.map((id, k) => `
+      <div class="xchart" data-k="${k}">
+        <div class="xchart-top">
+          <select data-k="${k}" aria-label="${esc(t('term.screen'))}">${listed.map((l) => `<option value="${l}" ${l === id ? 'selected' : ''}>${STOCKS[l].ticker}</option>`).join('')}</select>
+          <span class="xp"></span>
+        </div>
+        <canvas class="chart small"></canvas>
+      </div>`).join('');
+  }
+
+  private drawExtra() {
+    const g = this.g;
+    const s = g.s!;
+    const series = g.series();
+    const tf = s.phase === 'trading' ? Math.max(0, Math.min(s.len, g.tickF())) : s.len;
+    const tick = Math.floor(tf);
+    this.el.querySelectorAll<HTMLElement>('.xchart').forEach((box) => {
+      const id = this.extra[Number(box.dataset.k)];
+      if (id === undefined || !series[id]) return;
+      drawChart(box.querySelector('canvas')!, {
+        series: series[id], now: tf, len: s.len, color: STOCKS[id].color, future: null,
+        markers: s.positions.filter((q) => q.stock === id && q.owner === g.uid).map((q) => ({ tick: q.tick, price: q.entry, side: q.side })),
+        news: [], halts: [],
+      });
+      const p = series[id][tick];
+      const ch = p / series[id][0] - 1;
+      const xp = box.querySelector<HTMLElement>('.xp')!;
+      xp.textContent = `${price(p)} ${pct(ch)}`;
+      xp.className = `xp ${ch >= 0 ? 'up' : 'down'}`;
+    });
+  }
+
   /** Ανανέωση. full=true όταν άλλαξε κάτι εκτός από τον χρόνο. */
   update(full = false) {
     const g = this.g;
@@ -158,6 +230,7 @@ export class Terminal {
     const trading = s.phase === 'trading' && g.tickF() >= 0 && g.tickF() < s.len;
     // μετοχές
     this.syncTiles(s.listed ?? []);
+    this.syncExtra();
     (s.listed ?? []).forEach((i) => {
       const tile = this.tiles.get(i)!;
       const p = series[i][tick];

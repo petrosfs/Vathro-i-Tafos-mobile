@@ -263,3 +263,25 @@ describe('οφέλη χώρου', () => {
     expect(bonusRate(off, off.players.u0)).toBe(3);
   });
 });
+
+describe('οθόνες', () => {
+  it('1 οθόνη στο γκαράζ, 2 από τη Wall Street, έξτρα από το πορτοφόλι ως 6', async () => {
+    const { screensOf, screenPrice } = await import('./engine');
+    const s = game(1);
+    const p = s.players.u0;
+    expect(screensOf(s, p)).toBe(1);
+    expect(applyAction(s, 'u0', { t: 'screen' }, flat)).toBe('wallet');
+    p.wallet = 10000;
+    const prices: number[] = [];
+    while (screenPrice(s, p) !== null) {
+      prices.push(screenPrice(s, p)!);
+      expect(applyAction(s, 'u0', { t: 'screen' }, flat)).toBeNull();
+    }
+    expect(screensOf(s, p)).toBe(6);
+    expect(prices).toEqual([60, 120, 200, 300, 450]);
+    expect(applyAction(s, 'u0', { t: 'screen' }, flat)).toBe('max');
+    const w = game(1);
+    w.venue = 2;
+    expect(screensOf(w, w.players.u0)).toBe(2);
+  });
+});

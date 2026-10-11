@@ -37,6 +37,7 @@ const BODY = {
     <ul>
       <li>Όταν η ομάδα πιάνει τον στόχο, ο καθένας παίρνει <b>bonus</b>: ένα ποσοστό (2, 3 ή 5%, από το setup) από τα κέρδη που έβγαλε εκείνη τη μέρα. Βγαίνει από το κοινό ταμείο και μπαίνει στο <b>προσωπικό του πορτοφόλι</b>.</li>
       <li>Το ποσοστό ανεβαίνει με το upgrade «Bonus pool» (+1% για όλους) και κατά +1% για όποιον πιάσει μόνος του τον στόχο μιας μέρας, ως 10%.</li>
+      <li><b>Οθόνες</b>: μία στο γκαράζ και στην πολυκατοικία, δύο από τη Wall Street. Από το κατάστημα αγοράζεις έξτρα (ως 6), με τιμή που ανεβαίνει κάθε φορά· κάθε έξτρα οθόνη είναι ένα ακόμα γράφημα στο τερματικό σου.</li>
       <li>Με το πορτοφόλι στολίζεις το δικό σου γραφείο και προσλαμβάνεις τον «σκλάβο» σου. Τα πράγματα για όλους τα πληρώνει η ομάδα με νομίσματα.</li>
     </ul>
     <h3>Ο χώρος σας</h3>
@@ -86,6 +87,7 @@ const BODY = {
     <ul>
       <li>When the team hits the quota, everyone gets a <b>bonus</b>: a percentage (2, 3 or 5%, from the setup) of the profit they made that day. It is paid from the shared balance into their <b>personal wallet</b>.</li>
       <li>The rate grows with the “Bonus pool” upgrade (+1% for everyone) and by +1% for anyone who hits a day’s quota single-handedly, up to 10%.</li>
+      <li><b>Screens</b>: one in the garage and the apartment office, two from Wall Street up. Buy extra ones in the shop (up to 6), each pricier than the last; every extra screen is one more chart in your terminal.</li>
       <li>With your wallet you decorate your own desk and hire your minion. Things for everyone are paid by the team with coins.</li>
     </ul>
     <h3>Your premises</h3>

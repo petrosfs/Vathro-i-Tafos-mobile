@@ -145,6 +145,8 @@ export interface PlayerState {
   wallet: number;
   /** Επιπλέον ποσοστό bonus που κέρδισε με πολύ καλές μέρες. */
   rate: number;
+  /** Έξτρα οθόνες που αγόρασε για το γραφείο του. */
+  screens: number;
   /** Αν είναι bot. */
   bot?: BotInfo;
 }
@@ -284,6 +286,19 @@ export const VENUES = [
   { glyph: '🌇', unlock: 8, coins: 16, cash: 3 },
 ];
 export const MAX_VENUE = VENUES.length - 1;
+
+/** Οθόνες στο γραφείο: 1 στο γκαράζ και στην πολυκατοικία, 2 από τη Wall Street, ως 6 με αγορές. */
+export const MAX_SCREENS = 6;
+const SCREEN_USD = [60, 120, 200, 300, 450];
+export const baseScreens = (venue: number) => (venue >= 2 ? 2 : 1);
+export const screensOf = (s: GameState, p: PlayerState | undefined) =>
+  Math.min(MAX_SCREENS, baseScreens(s.venue ?? 0) + (p?.screens ?? 0));
+/** Τιμή της επόμενης έξτρα οθόνης (null αν δεν χωράει άλλη). */
+export function screenPrice(s: GameState, p: PlayerState): number | null {
+  if (screensOf(s, p) >= MAX_SCREENS) return null;
+  const k = Math.min(SCREEN_USD.length - 1, p.screens ?? 0);
+  return Math.round((SCREEN_USD[k] * s.config.startCash) / 10000);
+}
 /** Κάθε επίπεδο χώρου φέρνει τις ειδήσεις 2″ νωρίτερα (καλύτερες πηγές). */
 export const VENUE_NEWS_TICKS = 4;
 export const venueCash = (s: GameState, v: number) => Math.round(s.config.startCash * VENUES[v].cash);
@@ -304,7 +319,8 @@ export type Action =
   | { t: 'unlock'; ids: string[] }
   | { t: 'hire'; tier: number; kind: 'team' | 'slave' }
   | { t: 'fire'; uid: string }
-  | { t: 'move'; pay: 'coins' | 'cash' };
+  | { t: 'move'; pay: 'coins' | 'cash' }
+  | { t: 'screen' };
 
 export type ActionError =
   | 'phase' | 'tick' | 'amount' | 'cash' | 'stock' | 'perk' | 'max' | 'gone' | 'owner'
@@ -343,7 +359,7 @@ export function newStats(): PlayerStats {
 }
 
 export function newPlayer(name: string, look: Look): PlayerState {
-  return { name, look, inv: [], lev: false, ready: false, stats: newStats(), dayPnl: 0, decor: [], wallet: 0, rate: 0 };
+  return { name, look, inv: [], lev: false, ready: false, stats: newStats(), dayPnl: 0, decor: [], wallet: 0, rate: 0, screens: 0 };
 }
 
 export function createGame(
@@ -663,6 +679,15 @@ export function applyAction(s: GameState, uid: string, a: Action, prices: Prices
       } else return 'gone';
       addBot(s, a.kind, tier, uid);
       log(s, { tick: -1, kind: 'hire', who: uid, tier, bk: a.kind });
+      return null;
+    }
+    case 'screen': {
+      if (s.phase !== 'shop') return 'phase';
+      const cost = screenPrice(s, pl);
+      if (cost === null) return 'max';
+      if (pl.wallet < cost) return 'wallet';
+      pl.wallet = Math.round((pl.wallet - cost) * 100) / 100;
+      pl.screens = (pl.screens ?? 0) + 1;
       return null;
     }
     case 'move': {

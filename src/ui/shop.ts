@@ -2,7 +2,7 @@
 import { esc, h } from '../app';
 import { money, signed, t, tr } from '../i18n';
 import {
-  bonusRate, decorPrice, MAX_PLAYERS, VENUE_NEWS_TICKS, MAX_VENUE, rerollCost, SEC_NORMAL_MUL, slavePrice, venueCash, venueUnlockAt, VENUES,
+  bonusRate, decorPrice, MAX_PLAYERS, MAX_SCREENS, screenPrice, screensOf, VENUE_NEWS_TICKS, MAX_VENUE, rerollCost, SEC_NORMAL_MUL, slavePrice, venueCash, venueUnlockAt, VENUES,
 } from '../sim/engine';
 import { VENUE_DESC, VENUE_NAMES } from './venueText';
 import { MAX_LISTED, STOCKS } from '../sim/stocks';
@@ -54,6 +54,9 @@ export class ShopPanel {
       } else if (act === 'hire') {
         this.g.send({ t: 'hire', tier: Number(b.dataset.tier), kind: b.dataset.kind === 'slave' ? 'slave' : 'team' });
         sfx.coin();
+      } else if (act === 'screen') {
+        this.g.send({ t: 'screen' });
+        sfx.coin();
       } else if (act === 'move') {
         const pay = b.dataset.pay === 'cash' ? 'cash' : 'coins';
         const s = this.g.s;
@@ -92,7 +95,14 @@ export class ShopPanel {
         ${btn}
       </div>`;
     };
-    const decor = OFFICE.filter((o) => o.kind === 'decor').map((o) => card(o.id)).join('');
+    const scr = me ? screensOf(s, me) : 1;
+    const scrPrice = me ? screenPrice(s, me) : null;
+    const screenCard = me && !me.bot ? `<div class="ocard ${scrPrice === null ? 'mine' : ''}">
+        <span class="glyph">🖥</span>
+        <span class="oname"><b>${esc(t('office.screen'))}</b><small>${esc(t('office.screenDesc', { n: scr, max: MAX_SCREENS }))}</small></span>
+        ${scrPrice === null ? `<span class="owned">✓ ${esc(t('office.screenMax'))}</span>` : `<button class="btn small" data-act="screen" ${(me.wallet ?? 0) >= scrPrice ? '' : 'disabled'}>${money(scrPrice)}</button>`}
+      </div>` : '';
+    const decor = screenCard + OFFICE.filter((o) => o.kind === 'decor').map((o) => card(o.id)).join('');
     const ups = OFFICE.filter((o) => o.kind === 'upgrade').map((o) => card(o.id)).join('');
     return `
       <h3>${esc(t('office.mine', { n: me?.decor.length ?? 0, max: MAX_DECOR }))}</h3>

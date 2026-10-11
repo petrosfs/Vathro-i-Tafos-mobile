@@ -4,7 +4,7 @@ import { money, pct, price, signed, t, tr } from '../i18n';
 import { loadSettings, RESOLUTIONS, saveSettings, type Resolution } from '../settings';
 import { rulesHtml } from './rules';
 import { sfx } from '../audio';
-import { ranking, type GameState } from '../sim/engine';
+import { ranking, screensOf, type GameState } from '../sim/engine';
 import { STOCKS } from '../sim/stocks';
 import { ITEM } from '../sim/items';
 import { GameController } from '../game/controller';
@@ -233,6 +233,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       world.setDecor(s.order.map((u) => s.players[u]?.decor ?? []));
       world.setUpgrades(s.office ?? [], s.seed);
       world.setVenue(s.venue ?? 0);
+      world.setScreens(world.office.deskScreens.map((_, d) => screensOf(s, s.players[s.order[d]])));
       if (prev && (prev.venue ?? 0) !== (s.venue ?? 0)) {
         toast(t('venue.moved', { name: tr(VENUE_NAMES[s.venue ?? 0]) }), 'good', 5000);
         world.celebrate(3000);

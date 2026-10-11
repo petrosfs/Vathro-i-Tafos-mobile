@@ -50,7 +50,8 @@
   Street και ρετιρέ, με νομίσματα ή μετρητά. Αληθινά παράθυρα με θέα: δρόμος με σπίτια, πολυκατοικίες με
   μπαλκόνια, ουρανοξύστες, η πόλη από ψηλά στο ηλιοβασίλεμα.
 - **Πορτοφόλι και bonus**: όταν η ομάδα πιάνει τον στόχο, ο καθένας παίρνει ποσοστό από τα κέρδη του. Με αυτό
-  στολίζει το γραφείο του και προσλαμβάνει τον «σκλάβο» του.
+  στολίζει το γραφείο του, αγοράζει έξτρα οθόνες (ως 6, κάθε μία κι ένα γράφημα ακόμα στο τερματικό) και
+  προσλαμβάνει τον «σκλάβο» του.
 - **Bots**: συνάδελφοι-bots από το setup, bots για την ομάδα (με νομίσματα) και προσωπικοί «σκλάβοι» (από το
   πορτοφόλι), σε τέσσερα επίπεδα από Ασκούμενο ως Λύκο.
 - **Επιτροπή Κεφαλαιαγοράς**: οι υποψίες ανεβαίνουν με τα ύποπτα κόλπα και τα υπερβολικά κέρδη· μια μέρα
@@ -95,7 +96,7 @@
 προεπιλογή είναι σταθερή κάμερα και ελαφριά γραφικά.
 
 **Ποιότητα.**
-- **63 τεστ** (Vitest), με προσομοιώσεις χιλιάδων τυχαίων κινήσεων που ελέγχουν ότι το ταμείο δεν γίνεται
+- **64 τεστ** (Vitest), με προσομοιώσεις χιλιάδων τυχαίων κινήσεων που ελέγχουν ότι το ταμείο δεν γίνεται
   ποτέ αρνητικό και ότι δεν χάνεται θέση.
 - Κατά την ανάπτυξη, **δοκιμές σε πραγματικό browser** (Playwright) με τοπικό Firebase emulator: παρτίδες
   10 παικτών, αλλαγή host στη μέση της μέρας, επανασύνδεση μετά από ανανέωση, επιστροφή στο δωμάτιο.
@@ -158,7 +159,7 @@ phone or a computer, with no install and no account.
   penthouse, paying with coins or cash. Real windows with a view: a street with houses, apartment blocks with
   balconies, skyscrapers, the city from above at sunset.
 - **Wallet and bonus**: when the team hits the quota, everyone gets a share of their own profit, used to decorate
-  their desk and hire their minion.
+  their desk, buy extra screens (up to 6, each one more chart in the terminal) and hire their minion.
 - **Bots**: bot colleagues from the setup, team bots (paid with coins) and personal minions (paid from the wallet),
   in four levels from Intern to Wolf.
 - **Securities Commission**: suspicion rises with shady tricks and outsized profits; one day an investigation
@@ -201,7 +202,7 @@ saved state. Anyone who refreshes the page rejoins the room.
 default to the fixed camera and light graphics.
 
 **Quality.**
-- **63 tests** (Vitest), with simulations of thousands of random moves checking that the balance never goes
+- **64 tests** (Vitest), with simulations of thousands of random moves checking that the balance never goes
   negative and no position is lost.
 - During development, **real-browser tests** (Playwright) against a local Firebase emulator: 10-player games, a
   host change mid-day, rejoining after a refresh, returning to the room.

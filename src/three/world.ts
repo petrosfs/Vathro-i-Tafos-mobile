@@ -8,7 +8,7 @@ import { Tiger } from './tiger';
 import { buildVenue, type VenueBuild } from './venue';
 import type { DecorId, UpgradeId } from '../sim/office';
 import { FirstPerson, collide } from './controls';
-import { buildOffice, ROOM, type Interactable, type Office } from './office';
+import { buildOffice, MAX_DESK_SCREENS, ROOM, SCREEN_LAYOUT, type Interactable, type Office } from './office';
 import { canvasTexture, drawBoard, drawMonitor, drawNeon, drawNewsScreen, drawTombstone, setTextureScale, type BoardData } from './textures';
 import { pixelRatioFor, type Resolution } from '../settings';
 
@@ -63,6 +63,7 @@ export class World {
   private coreColliders: number;
   private venue: VenueBuild | null = null;
   private venueLevel = -1;
+  private screensKey = '';
   private aquarium: THREE.Group | null = null;
   private tiger: Tiger | null = null;
   private petSeed = 1;
@@ -91,6 +92,7 @@ export class World {
     this.baseColliders = this.coreColliders;
     this.scene.add(this.office.group);
     this.setVenue(0);
+    this.setScreens([]);
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(container);
     this.resize();
@@ -232,6 +234,30 @@ export class World {
         tv.tex.needsUpdate = true;
       }
     }
+  }
+
+  /** Πόσες οθόνες έχει κάθε γραφείο (1–6). */
+  setScreens(counts: number[]) {
+    const key = counts.join(',');
+    if (key === this.screensKey) return;
+    this.screensKey = key;
+    this.office.deskScreens.forEach((list, d) => {
+      const n = Math.max(1, Math.min(MAX_DESK_SCREENS, counts[d] ?? 1));
+      const lay = SCREEN_LAYOUT[n - 1];
+      const { x, z } = this.office.deskPos[d];
+      list.forEach((g, k) => {
+        g.visible = k < n;
+        if (!g.visible) return;
+        const [lx, ly, lz, ry] = lay[k];
+        g.position.set(x + lx, ly, z + lz);
+        g.rotation.y = ry;
+        // βάση ως το γραφείο, πίσω από την οθόνη
+        const pole = g.getObjectByName('pole')!;
+        const h = ly - 0.79 - 0.2;
+        pole.scale.y = Math.max(0.05, h);
+        pole.position.set(0, -0.2 - h / 2, -0.04);
+      });
+    });
   }
 
   setMonitor(i: number, ticker: string, color: string, series: number[], label: string) {
