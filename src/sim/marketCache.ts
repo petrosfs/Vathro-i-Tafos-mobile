@@ -10,7 +10,7 @@ export class MarketCache {
     const key = [
       s.seed, s.day, s.len, s.config.dayLen, s.config.difficulty, s.opens.join(','),
       s.effects.map((e) => `${e.kind}${e.stock}@${e.start}`).join(','),
-      (s.listed ?? []).join(','), JSON.stringify(s.events ?? []), JSON.stringify(s.born ?? {}),
+      (s.listed ?? []).join(','), JSON.stringify(s.events ?? []), JSON.stringify(s.born ?? {}), JSON.stringify(s.boosts ?? []),
     ].join('|');
     if (key !== this.key) {
       this.key = key;

@@ -247,3 +247,60 @@ export const BUST: Tr[] = [
 export const BUST_FALSE: Tr[] = [
   { el: 'Η {c} βρήκε χρηματοδότηση: «όλα καλά»', en: '{c} secures funding: "all good"' },
 ];
+
+// Ειδήσεις κλάδων: κινούν όλες τις μετοχές του κλάδου. Με τη σειρά του SECTORS.
+export const SECTOR_NEWS: { up: Tr[]; down: Tr[] }[] = [
+  {
+    up: [{ el: 'Ρεκόρ τουρισμού: οι ταβέρνες γεμάτες', en: 'Record tourism: tavernas packed' }, { el: 'Πέφτουν οι τιμές στα πρώτα υλικά', en: 'Food commodity prices fall' }],
+    down: [{ el: 'Νέος φόρος στα τρόφιμα και τα ποτά', en: 'New tax on food and drink' }, { el: 'Ξηρασία: ακριβαίνουν οι πρώτες ύλες', en: 'Drought pushes ingredient prices up' }],
+  },
+  {
+    up: [{ el: 'Πυρετός για την τεχνητή νοημοσύνη', en: 'AI fever sweeps the market' }, { el: 'Φοροαπαλλαγές για τις startups', en: 'Tax breaks for startups' }],
+    down: [{ el: 'Έλλειψη chip σε όλο τον κόσμο', en: 'Global chip shortage' }, { el: 'Νέοι αυστηροί κανόνες για τα δεδομένα', en: 'Strict new data rules' }],
+  },
+  {
+    up: [{ el: 'Οι τράπεζες βγάζουν μέρισμα', en: 'Banks announce dividends' }, { el: 'Το bitcoin σε νέο ρεκόρ', en: 'Bitcoin hits a new high' }],
+    down: [{ el: 'Ανησυχία για τα «κόκκινα» δάνεια', en: 'Bad-loan worries' }, { el: 'Χάκερ σε ανταλλακτήριο crypto', en: 'Crypto exchange hacked' }],
+  },
+  {
+    up: [{ el: 'Φθηνότερα καύσιμα για τις μεταφορές', en: 'Cheaper fuel for transport' }, { el: 'Ρεκόρ επιβατών στα αεροδρόμια', en: 'Record passengers at airports' }],
+    down: [{ el: 'Απεργία στα λιμάνια', en: 'Port strike' }, { el: 'Καταιγίδες κλείνουν τους δρόμους', en: 'Storms close the roads' }],
+  },
+  {
+    up: [{ el: 'Το πετρέλαιο ακριβαίνει απότομα', en: 'Oil prices jump' }, { el: 'Ψυχρός χειμώνας: ζήτηση-ρεκόρ', en: 'Cold winter: record demand' }],
+    down: [{ el: 'Το πετρέλαιο βουλιάζει', en: 'Oil prices slump' }, { el: 'Ήπιος καιρός, μικρή ζήτηση ενέργειας', en: 'Mild weather, weak energy demand' }],
+  },
+  {
+    up: [{ el: 'Γρήγορες εγκρίσεις για νέα φάρμακα', en: 'Fast-track approvals for new drugs' }, { el: 'Κύμα γρίπης: ζήτηση στα φαρμακεία', en: 'Flu wave boosts pharmacy demand' }],
+    down: [{ el: 'Πλαφόν στις τιμές των φαρμάκων', en: 'Price cap on medicines' }, { el: 'Έρευνα για τις τιμές των φαρμάκων', en: 'Probe into drug pricing' }],
+  },
+  {
+    up: [{ el: 'Νέες άδειες για καζίνο', en: 'New casino licences' }, { el: 'Μουντιάλ: ρεκόρ στοιχημάτων', en: 'World Cup: record betting' }],
+    down: [{ el: 'Απαγόρευση στις διαφημίσεις στοιχημάτων', en: 'Ban on betting ads' }, { el: 'Νέος φόρος στον τζόγο', en: 'New gambling tax' }],
+  },
+  {
+    up: [{ el: 'Μεγάλα δημόσια έργα σε όλη τη χώρα', en: 'Big public works nationwide' }, { el: 'Αύξηση των εξαγωγών', en: 'Exports rise' }],
+    down: [{ el: 'Ακριβαίνει το ρεύμα στα εργοστάσια', en: 'Factory power costs soar' }, { el: 'Πέφτουν οι παραγγελίες', en: 'Orders drop' }],
+  },
+];
+
+/** Προγραμματισμένα αποτελέσματα (ξέρετε από το πρωί πότε βγαίνουν). */
+export const EARN_GOOD: Tr[] = [
+  { el: '{c}: αποτελέσματα πολύ πάνω από τις εκτιμήσεις!', en: '{c}: results well above estimates!' },
+  { el: '{c}: κέρδη-ρεκόρ στο τρίμηνο!', en: '{c}: record quarterly profit!' },
+];
+export const EARN_BAD: Tr[] = [
+  { el: '{c}: απογοητευτικά αποτελέσματα', en: '{c}: disappointing results' },
+  { el: '{c}: ζημιές αντί για κέρδη', en: '{c}: losses instead of profit' },
+];
+export const ANALYST_UP: Tr[] = [
+  { el: 'Αναλυτές: περιμένουμε δυνατά αποτελέσματα από την {c}', en: 'Analysts expect strong results from {c}' },
+];
+export const ANALYST_DOWN: Tr[] = [
+  { el: 'Αναλυτές: ανησυχία για τα αποτελέσματα της {c}', en: 'Analysts worried about {c} results' },
+];
+export const RALLY: Tr[] = [
+  { el: 'ΡΑΛΙ: όλη η αγορά πετάει!', en: 'RALLY: the whole market soars!' },
+  { el: 'ΡΑΛΙ: η Κεντρική Τράπεζα τυπώνει χρήμα', en: 'RALLY: the central bank prints money' },
+];
+export const RUMOR_REL: Tr = { el: 'ΦΗΜΗ ({p}% αξιόπιστη): ', en: 'RUMOR ({p}% reliable): ' };

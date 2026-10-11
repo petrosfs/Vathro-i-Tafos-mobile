@@ -7,6 +7,11 @@ import { animateAquarium, DECOR_SPOTS, makeAquarium, makeDecor, makeDoll, makeKo
 import { Tiger } from './tiger';
 import { buildVenue, type VenueBuild } from './venue';
 import { EodScene, type EodSpec } from './eodScene';
+import { RaidScene } from './raidScene';
+import { makeMoneyGun, MoneyFx } from './moneyFx';
+import { SlotMachine } from './slotMachine';
+import { NewsTv } from './newsTv';
+import type { SlotState } from '../sim/slot';
 import type { DecorId, UpgradeId } from '../sim/office';
 import { FirstPerson, collide } from './controls';
 import { buildOffice, MAX_DESK_SCREENS, ROOM, SCREEN_LAYOUT, type Interactable, type Office } from './office';
@@ -24,6 +29,7 @@ export interface WorldOptions {
   shopTitle: string;
   shopSub: string;
   neonText: string;
+  tv: { breaking: string; live: string; brand: string };
 }
 
 export interface WorldPlayer {
@@ -31,7 +37,15 @@ export interface WorldPlayer {
   name: string;
   look: Look;
   desk: number;
+  /** Ρολόι (0–2) και όπλο με λεφτά. */
+  watch?: number;
+  gun?: boolean;
 }
+
+/** Το emote που σημαίνει «βρέχω λεφτά» (περνάει στους άλλους μαζί με τη θέση). */
+export const MONEY_EMOTE = '💸';
+/** Κωλοδάχτυλο: «🖕>uid» (σε ποιον). */
+export const FINGER = '🖕>';
 
 export class World {
   readonly renderer: THREE.WebGLRenderer;
@@ -66,8 +80,19 @@ export class World {
   private venueLevel = -1;
   private screensKey = '';
   private eod: EodScene | null = null;
+  private raid: RaidScene | null = null;
+  /** Περιγράμματα: ένα ανά γραφείο και το τελευταίο για το κατάστημα. */
+  private outlines: THREE.Mesh[] = [];
+  readonly money: MoneyFx;
+  /** Ποιος «βρέχει» λεφτά αυτή τη στιγμή (ως πότε, πότε η επόμενη ριπή). */
+  private gunFx = new Map<string, { until: number; next: number }>();
   onEodEnd: () => void = () => {};
   private aquarium: THREE.Group | null = null;
+  private slot: SlotMachine | null = null;
+  private tv: NewsTv;
+  private slotSeen = -1;
+  /** Θέση του κουλοχέρη (δυτικός τοίχος, κοιτάζει προς τα γραφεία). */
+  static readonly SLOT_POS = { x: -11.3, z: 5.6 };
   private tiger: Tiger | null = null;
   private petSeed = 1;
   private speedBoost = 1;
@@ -91,6 +116,27 @@ export class World {
     this.renderer.domElement.className = 'scene';
     container.append(this.renderer.domElement);
     this.office = buildOffice(opts.shopTitle, opts.shopSub, high);
+    this.money = new MoneyFx(this.scene);
+    // τηλεόραση με δελτίο ειδήσεων δίπλα στον πίνακα (από την πολυκατοικία και πάνω)
+    this.tv = new NewsTv(opts.tv);
+    this.tv.group.position.set(5.85, 2.3, ROOM.minZ + 0.1);
+    this.tv.group.visible = false;
+    this.scene.add(this.tv.group);
+    // λευκό περίγραμμα σε ό,τι μπορείς να χρησιμοποιήσεις όταν είσαι κοντά (οθόνη γραφείου, κατάστημα)
+    const line = new THREE.MeshBasicMaterial({ color: '#FFFFFF', side: THREE.BackSide });
+    this.outlines = this.office.deskScreens.map((list) => {
+      const o = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.47, 0.04), line);
+      o.scale.set(1.08, 1.12, 1.6);
+      o.visible = false;
+      list[0].add(o);
+      return o;
+    });
+    const shopOutline = new THREE.Mesh(new THREE.BoxGeometry(1.3, 2.3, 0.9), line);
+    shopOutline.position.set(0, 1.15, 0);
+    shopOutline.scale.set(1.05, 1.03, 1.08);
+    shopOutline.visible = false;
+    this.office.shopGlow.parent?.add(shopOutline);
+    this.outlines.push(shopOutline);
     this.coreColliders = this.office.colliders.length;
     this.baseColliders = this.coreColliders;
     this.scene.add(this.office.group);
@@ -166,6 +212,7 @@ export class World {
         this.avatars.set(p.uid, a);
         this.scene.add(a.group);
       }
+      this.avatars.get(p.uid)?.setWatch(p.watch ?? 0);
     }
     if (this.fp && !list.some((p) => p.uid === this.myUid)) return;
   }
@@ -184,7 +231,9 @@ export class World {
       this.poses.set(uid, p);
       if (p.e && p.et && p.et !== this.emoteSeen.get(uid) && now - p.et < 4000) {
         this.emoteSeen.set(uid, p.et);
-        this.avatars.get(uid)?.emote(p.e, now);
+        if (p.e === MONEY_EMOTE) this.startMoneyGun(uid);
+        else if (p.e.startsWith(FINGER)) this.flipOff(uid, p.e.slice(FINGER.length));
+        else this.avatars.get(uid)?.emote(p.e, now);
       }
     }
   }
@@ -198,8 +247,142 @@ export class World {
     return { x: seat.x, z: seat.z, ry: seat.ry, a: 2 };
   }
 
+  /** Κάποιος κάνει κωλοδάχτυλο σε κάποιον: ο ένας χειρονομεί, ο άλλος θυμώνει. */
+  onFingered: (from: string) => void = () => {};
+  flipOff(from: string, to: string) {
+    this.avatars.get(from)?.gesture('finger', 2600);
+    setTimeout(() => this.avatars.get(to)?.gesture('angry', 2200), 500);
+    if (to === this.myUid) this.onFingered(from);
+  }
+
+  /** Ο πιο κοντινός συνάδελφος μπροστά μου (ως 6 μ., μέσα σε ±50°). */
+  facing(): string | null {
+    const me = this.myPose();
+    const yaw = this.fp && this.sitAt === null ? this.fp.yaw : me.ry;
+    const fx = this.fp && this.sitAt === null ? -Math.sin(yaw) : Math.sin(yaw);
+    const fz = this.fp && this.sitAt === null ? -Math.cos(yaw) : Math.cos(yaw);
+    let best: string | null = null;
+    let bd = Infinity;
+    for (const [uid, a] of this.avatars) {
+      if (uid === this.myUid || !a.group.visible) continue;
+      const dx = a.group.position.x - me.x;
+      const dz = a.group.position.z - me.z;
+      const d = Math.hypot(dx, dz);
+      if (d < 0.3 || d > 6) continue;
+      const cos = (dx * fx + dz * fz) / d;
+      const score = d * (2 - cos);
+      if (cos > 0.64 && score < bd) {
+        bd = score;
+        best = uid;
+      }
+    }
+    // κανείς μπροστά: ο πιο κοντινός σε 4 μ.
+    if (!best) {
+      for (const [uid, a] of this.avatars) {
+        if (uid === this.myUid) continue;
+        const d = Math.hypot(a.group.position.x - me.x, a.group.position.z - me.z);
+        if (d < 4 && d < bd) {
+          bd = d;
+          best = uid;
+        }
+      }
+    }
+    return best;
+  }
+
+  /** Το ρολόι τοίχου δείχνει την ώρα της αγοράς: 09:30 στο άνοιγμα, 16:00 στο κλείσιμο. */
+  setMarketTime(frac: number) {
+    const c = this.venue?.clock;
+    if (!c) return;
+    const mins = 9.5 * 60 + Math.max(0, Math.min(1, frac)) * 6.5 * 60;
+    c.minute.rotation.z = -((mins % 60) / 60) * Math.PI * 2;
+    c.hour.rotation.z = -(((mins / 60) % 12) / 12) * Math.PI * 2;
+  }
+
+  /** Είναι ο παίκτης κοντά μου (το συννεφάκι του φαίνεται); */
+  isNear(uid: string): boolean {
+    const a = this.avatars.get(uid);
+    if (!a || !this.fp) return !!a && this.view === 'overview';
+    const me = this.myPose();
+    return Math.hypot(a.group.position.x - me.x, a.group.position.z - me.z) < 9;
+  }
+
+  /** Συννεφάκι με όσα λέει ένας παίκτης. */
+  say(uid: string, text: string, now: number) {
+    this.avatars.get(uid)?.say(text, now);
+  }
+
   emoteMine(e: string, now: number) {
+    if (e === MONEY_EMOTE) return this.startMoneyGun(this.myUid);
+    if (e.startsWith(FINGER)) return this.flipOff(this.myUid, e.slice(FINGER.length));
     this.avatars.get(this.myUid)?.emote(e, now);
+  }
+
+  /** Το όπλο με λεφτά: 2,5″ ριπές χαρτονομισμάτων μπροστά από τον παίκτη. */
+  startMoneyGun(uid: string) {
+    const a = this.avatars.get(uid);
+    if (!a) return;
+    if (!this.gunFx.has(uid)) a.hold(makeMoneyGun());
+    this.gunFx.set(uid, { until: performance.now() + 2500, next: 0 });
+  }
+
+  private updateMoneyGuns(now: number) {
+    for (const [uid, g] of this.gunFx) {
+      const a = this.avatars.get(uid);
+      if (!a || now > g.until) {
+        a?.hold(null);
+        this.gunFx.delete(uid);
+        continue;
+      }
+      if (now < g.next) continue;
+      g.next = now + 120;
+      let from: THREE.Vector3;
+      let dir: THREE.Vector3;
+      if (uid === this.myUid && this.fp && this.view === 'first' && this.sitAt === null) {
+        // πρώτο πρόσωπο: από μπροστά από την κάμερα
+        dir = new THREE.Vector3(-Math.sin(this.fp.yaw), 0.15, -Math.cos(this.fp.yaw));
+        from = new THREE.Vector3(this.fp.pos.x, 1.3, this.fp.pos.z).addScaledVector(dir, 0.6);
+      } else {
+        const ry = a.group.rotation.y;
+        dir = new THREE.Vector3(Math.sin(ry) * 0.8, 0.8, Math.cos(ry) * 0.8);
+        from = a.handWorld().addScaledVector(dir, 0.2);
+      }
+      this.money.burst(from, dir, 8, 3.4);
+    }
+  }
+
+  /** Χαρτονομίσματα πάνω από ένα γραφείο (κερδοφόρα συναλλαγή). */
+  /**
+   * Ο κουλοχέρης: δείχνει το καζάνι και παίζει κάθε νέο τράβηγμα.
+   * Επιστρέφει τα νέα τραβήγματα (για ήχους/μηνύματα).
+   */
+  setSlot(st: SlotState | undefined, potText: string): SlotState['log'] {
+    if (!this.slot || !st) return [];
+    this.slot.setPot(potText);
+    const log = st.log ?? [];
+    const last = log[log.length - 1];
+    if (!last) return [];
+    if (this.slotSeen < 0) {
+      // μόλις μπήκαμε: χωρίς animation για τα παλιά
+      this.slotSeen = last.n;
+      this.slot.show(last.reels);
+      return [];
+    }
+    const fresh = log.filter((r) => r.n > this.slotSeen);
+    if (!fresh.length) return [];
+    this.slotSeen = last.n;
+    this.slot.play(last.reels, last.jackpot);
+    if (last.jackpot) {
+      const { x, z } = World.SLOT_POS;
+      setTimeout(() => this.money.burst(new THREE.Vector3(x + 0.4, 1.4, z), new THREE.Vector3(1, 0.4, 0), 120, 2.5), 1500);
+    }
+    return fresh;
+  }
+
+  moneyAtDesk(desk: number, count: number) {
+    const d = this.office.deskPos[desk];
+    if (!d) return;
+    this.money.burst(new THREE.Vector3(d.x, 1.3, d.z - 0.1), null, count, 1.2);
   }
 
   celebrate(ms = 2500) {
@@ -228,6 +411,7 @@ export class World {
   }
 
   setBoard(d: BoardData) {
+    this.tv.setData(d);
     drawBoard(this.office.board.ctx, d);
     this.office.board.tex.needsUpdate = true;
     if (d.headline !== this.lastHeadline) {
@@ -298,6 +482,7 @@ export class World {
     }
     const v = buildVenue(level, this.opts.quality === 'high');
     this.venue = v;
+    this.tv.group.visible = level >= 1;
     this.scene.add(v.group);
     this.syncCeiling();
     this.office.colliders.length = this.coreColliders;
@@ -335,8 +520,16 @@ export class World {
         g.removeFromParent();
         this.upgrades.delete(id);
         if (id === 'tiger') this.tiger = null;
+        if (id === 'slot') {
+          this.slot = null;
+          this.slotSeen = -1;
+        }
       }
     }
+    const its = this.office.interactables;
+    const si = its.findIndex((it) => it.kind === 'slot');
+    if (si >= 0 && !ids.includes('slot')) its.splice(si, 1);
+    if (si < 0 && ids.includes('slot')) its.push({ kind: 'slot', index: 0, x: World.SLOT_POS.x + 1.0, z: World.SLOT_POS.z, r: 1.3 });
     this.office.colliders.length = this.baseColliders;
     for (const id of ids) {
       if (!this.upgrades.has(id)) {
@@ -346,6 +539,10 @@ export class World {
       }
       if (id === 'sofa') this.office.colliders.push({ minX: -9.2, maxX: -6.8, minZ: 6.0, maxZ: 8 });
       if (id === 'aquarium') this.office.colliders.push({ minX: 11.0, maxX: 12, minZ: 4.5, maxZ: 6.5 });
+      if (id === 'slot') {
+        const { x, z } = World.SLOT_POS;
+        this.office.colliders.push({ minX: ROOM.minX, maxX: x + 0.45, minZ: z - 0.45, maxZ: z + 0.45 });
+      }
       if (id === 'doll') this.office.colliders.push({ minX: ROOM.minX + 0.3, maxX: ROOM.minX + 1.1, minZ: -3.6, maxZ: -2.8 });
     }
     const gold = ids.includes('goldbell');
@@ -410,6 +607,13 @@ export class World {
         g.add(d);
         break;
       }
+      case 'slot': {
+        this.slot = new SlotMachine();
+        this.slot.group.position.set(World.SLOT_POS.x, 0, World.SLOT_POS.z);
+        this.slot.group.rotation.y = Math.PI / 2;
+        g.add(this.slot.group);
+        break;
+      }
       case 'kourabie': {
         // πιατέλα πάνω στον πάγκο του καφέ, δίπλα στις κούπες
         const k = makeKourabiedes();
@@ -447,7 +651,8 @@ export class World {
     this.fp?.setEnabled(false);
     const list = [...this.avatars.values()];
     this.syncCeilingFor(true);
-    this.eod = new EodScene(this.scene, list, spec, this.office.deskPos, ms);
+    const gunners = new Set([...this.players.values()].filter((p) => p.gun).map((p) => this.avatars.get(p.uid)).filter((a): a is Avatar => !!a));
+    this.eod = new EodScene(this.scene, list, spec, this.office.deskPos, ms, gunners, this.money);
   }
 
   get eodPlaying() {
@@ -480,8 +685,15 @@ export class World {
 
   private frame(dt: number, now: number) {
     const wall = Date.now();
+    if (this.raid) {
+      this.raid.update(dt, this.camera);
+      this.money.update(dt);
+      this.renderer.render(this.scene, this.camera);
+      return;
+    }
     if (this.eod) {
       const done = this.eod.update(dt);
+      this.money.update(dt);
       if (this.aquarium) animateAquarium(this.aquarium, now / 1000);
       if (this.tiger) this.tiger.update(Date.now());
       this.eod.camera(this.camera);
@@ -501,6 +713,7 @@ export class World {
         a.group.position.set(p.x, 0, p.z);
         a.group.rotation.y = p.ry;
         a.anim = now < this.celebrateUntil ? 'cheer' : p.a === 2 ? 'sit' : p.a === 1 ? 'walk' : 'idle';
+        if (this.gunFx.has(uid) && p.a !== 2) a.anim = 'shoot';
         a.update(dt, wall, false);
         continue;
       }
@@ -519,9 +732,19 @@ export class World {
         a.targetRy = s.ry;
         a.anim = 'sit';
       }
+      if (this.gunFx.has(uid) && a.anim !== 'sit') a.anim = 'shoot';
       a.update(dt, wall);
     }
     this.updateEnding(dt);
+    // περίγραμμα σε ό,τι είναι κοντά
+    const near = !this.ending && !this.uiOpen ? this.nearInteractable() : null;
+    this.outlines.forEach((o, i) => {
+      o.visible = !!near && (near.kind === 'shop' ? i === this.outlines.length - 1 : near.kind === 'desk' && i === near.index);
+    });
+    this.slot?.update(performance.now());
+    this.tv.update(performance.now());
+    this.updateMoneyGuns(performance.now());
+    this.money.update(dt);
     if (this.aquarium) animateAquarium(this.aquarium, now / 1000);
     if (this.tiger && !this.ending) this.tiger.update(Date.now());
     this.updateCamera(dt, now);
@@ -600,8 +823,20 @@ export class World {
   }
 
   /** Τελική σκηνή: βάθρο με τους 3 καλύτερους ή τάφοι για όλους. */
-  showEnding(kind: 'podium' | 'grave', ranking: string[]) {
-    if (this.ending) return;
+  showEnding(kind: 'podium' | 'grave' | 'jail', ranking: string[]) {
+    if (this.ending || this.raid) return;
+    if (kind === 'jail') {
+      // σύλληψη: έφοδος SWAT και κελί
+      if (this.eod) this.endEod();
+      this.fp?.setEnabled(false);
+      for (const g of this.gunFx.keys()) this.avatars.get(g)?.hold(null);
+      this.gunFx.clear();
+      const list = [...this.players.keys()].map((u) => this.avatars.get(u)).filter((a): a is Avatar => !!a);
+      if (this.venue) this.venue.ceiling.visible = true;
+      this.raid = new RaidScene(this.scene, list, this.venue?.door ?? null,
+        [this.office.group, ...(this.venue ? [this.venue.group] : []), this.money.mesh], this.container, this.opts.reduceMotion);
+      return;
+    }
     this.fp?.setEnabled(false);
     const g = new THREE.Group();
     const st = this.office.stage;
@@ -733,6 +968,9 @@ export class World {
 
   dispose() {
     cancelAnimationFrame(this.raf);
+    this.raid?.dispose();
+    this.eod?.dispose();
+    this.money.dispose();
     this.ro.disconnect();
     this.fp?.dispose();
     for (const a of this.avatars.values()) a.dispose();

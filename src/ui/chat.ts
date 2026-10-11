@@ -2,6 +2,7 @@
 import { esc, h } from '../app';
 import { t } from '../i18n';
 import type { ChatMsg } from '../net/transport';
+import { decodeSay } from './say';
 
 export const EMOTES = ['🚀', '📉', '🤑', '😱', '💀', '👍', '🔔', '🙏'];
 
@@ -57,7 +58,7 @@ export class ChatPanel {
 
   private render() {
     this.list.innerHTML = this.msgs.length
-      ? this.msgs.map((m) => `<div class="msg ${m.uid === this.myUid ? 'mine' : ''}"><b>${esc(m.name)}</b> ${esc(m.text)}</div>`).join('')
+      ? this.msgs.map((m) => `<div class="msg ${m.uid === this.myUid ? 'mine' : ''}"><b>${esc(m.name)}</b> ${esc(decodeSay(m.text).text)}</div>`).join('')
       : `<p class="muted">${esc(t('chat.empty'))}</p>`;
     this.list.scrollTop = this.list.scrollHeight;
   }

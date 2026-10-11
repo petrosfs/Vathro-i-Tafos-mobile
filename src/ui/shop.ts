@@ -2,7 +2,7 @@
 import { esc, h } from '../app';
 import { money, signed, t, tr } from '../i18n';
 import {
-  bonusRate, decorPrice, MAX_PLAYERS, MAX_SCREENS, screenPrice, screensOf, VENUE_NEWS_TICKS, MAX_VENUE, rerollCost, SEC_NORMAL_MUL, slavePrice, venueCash, venueUnlockAt, VENUES,
+  bonusRate, decorPrice, MAX_PLAYERS, MAX_SCREENS, moneyGunPrice, watchPrice, screenPrice, screensOf, VENUE_NEWS_TICKS, MAX_VENUE, rerollCost, SEC_NORMAL_MUL, slavePrice, venueCash, venueUnlockAt, VENUES,
 } from '../sim/engine';
 import { VENUE_DESC, VENUE_NAMES } from './venueText';
 import { MAX_LISTED, STOCKS } from '../sim/stocks';
@@ -53,6 +53,12 @@ export class ShopPanel {
         sfx.coin();
       } else if (act === 'hire') {
         this.g.send({ t: 'hire', tier: Number(b.dataset.tier), kind: b.dataset.kind === 'slave' ? 'slave' : 'team' });
+        sfx.coin();
+      } else if (act === 'watch') {
+        this.g.send({ t: 'watch', kind: Number(b.dataset.kind) });
+        sfx.coin();
+      } else if (act === 'moneygun') {
+        this.g.send({ t: 'moneygun' });
         sfx.coin();
       } else if (act === 'screen') {
         this.g.send({ t: 'screen' });
@@ -110,6 +116,24 @@ export class ShopPanel {
       <h3>${esc(t('office.team'))}</h3>
       <div class="ocards">${ups}</div>
       <p class="muted small">${esc(t('office.wallet'))} ${esc(t('office.note'))}</p>`;
+  }
+
+  /** Μόστρα: ρολόγια και όπλο που πυροβολεί λεφτά (από το πορτοφόλι). */
+  private flexHtml(): string {
+    const s = this.g.s!;
+    const me = this.g.me();
+    if (!me || me.bot) return '';
+    const row = (glyph: string, name: string, desc: string, owned: boolean, cost: number, act: string, extra = '') => `
+      <div class="ocard ${owned ? 'mine' : ''}">
+        <span class="glyph">${glyph}</span>
+        <span class="oname"><b>${esc(name)}</b><small>${esc(desc)}</small></span>
+        ${owned ? `<span class="owned">✓ ${esc(t('office.owned'))}</span>` : `<button class="btn small" data-act="${act}" ${extra} ${me.wallet >= cost ? '' : 'disabled'}>${money(cost)}</button>`}
+      </div>`;
+    return `<h3>${esc(t('shop.flex'))}</h3><div class="ocards">
+      ${row('⌚', t('flex.watch1'), t('flex.watchDesc'), (me.watch ?? 0) >= 1, watchPrice(s, 1), 'watch', 'data-kind="1"')}
+      ${row('💎', t('flex.watch2'), t('flex.watchDesc'), (me.watch ?? 0) >= 2, watchPrice(s, 2), 'watch', 'data-kind="2"')}
+      ${row('💸', t('flex.gun'), t('flex.gunDesc'), !!me.moneyGun, moneyGunPrice(s), 'moneygun')}
+    </div>`;
   }
 
   /** Προσλήψεις: bots για την ομάδα (νομίσματα) και ο προσωπικός «σκλάβος» (πορτοφόλι). */
@@ -255,6 +279,7 @@ export class ShopPanel {
       <h3>${esc(t('shop.perks'))}</h3><div class="pills">${perks}</div>
       ${this.venueHtml()}
       ${this.officeHtml()}
+      ${this.flexHtml()}
       ${this.botsHtml()}`;
     // Ξαναζωγραφίζουμε μόνο ό,τι άλλαξε, για να μη «χάνονται» πατήματα σε κουμπιά που ξαναφτιάχνονται.
     if (body !== this.lastBody) {

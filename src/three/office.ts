@@ -1,7 +1,7 @@
 // Το γραφείο του fund: γραφεία με οθόνες, ο μεγάλος πίνακας, το μηχάνημα του καταστήματος, τα φώτα.
 // Πάτωμα, τοίχοι, παράθυρα και ό,τι φαίνεται έξω εξαρτώνται από τον χώρο (venue.ts).
 import * as THREE from 'three';
-import { mat } from './avatar';
+import { mat, toon } from './avatar';
 import { canvasTexture, drawSign } from './textures';
 import { makeCoffeeCorner, makeMug } from './props';
 
@@ -24,7 +24,7 @@ export interface Box2 {
 }
 
 export interface Interactable {
-  kind: 'desk' | 'shop';
+  kind: 'desk' | 'shop' | 'slot';
   index: number;
   x: number;
   z: number;
@@ -46,8 +46,8 @@ export interface Office {
   /** Ομάδα ανά γραφείο για τα διακοσμητικά του παίκτη. */
   deskDecor: THREE.Group[];
   /** Υλικά των γραφείων και του πλαισίου του πίνακα (αλλάζουν με τον χώρο). */
-  deskMats: { top: THREE.MeshLambertMaterial; leg: THREE.MeshLambertMaterial; chair: THREE.MeshLambertMaterial };
-  boardFrame: THREE.MeshLambertMaterial;
+  deskMats: { top: THREE.MeshToonMaterial; leg: THREE.MeshToonMaterial; chair: THREE.MeshToonMaterial };
+  boardFrame: THREE.MeshToonMaterial;
   /** Οι οθόνες κάθε γραφείου (η πρώτη είναι η κύρια) και το κέντρο κάθε γραφείου. */
   deskScreens: THREE.Group[][];
   deskPos: { x: number; z: number }[];
@@ -117,12 +117,13 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   const g = new THREE.Group();
   // μεγάλος πίνακας
   const board = canvasTexture(1024, 512);
-  const boardMesh = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), new THREE.MeshBasicMaterial({ map: board.tex }));
-  boardMesh.position.set(0, 2.25, ROOM.minZ + 0.08);
+  // 2:1 όπως η υφή, και ολόκληρος ανάμεσα σε πάτωμα και ταβάνι (αλλιώς κρύβονται οι ειδήσεις στο κάτω μέρος)
+  const boardMesh = new THREE.Mesh(new THREE.PlaneGeometry(7.6, 3.8), new THREE.MeshBasicMaterial({ map: board.tex }));
+  boardMesh.position.set(0, 2.2, ROOM.minZ + 0.08);
   g.add(boardMesh);
-  const boardFrame = new THREE.MeshLambertMaterial({ color: '#10141C' });
-  const frameMesh = new THREE.Mesh(new THREE.BoxGeometry(10.3, 5.3, 0.04), boardFrame);
-  frameMesh.position.set(0, 2.25, ROOM.minZ + 0.03);
+  const boardFrame = toon('#10141C');
+  const frameMesh = new THREE.Mesh(new THREE.BoxGeometry(7.85, 4.05, 0.04), boardFrame);
+  frameMesh.position.set(0, 2.2, ROOM.minZ + 0.03);
   g.add(frameMesh);
   // καμπανάκι
   const bell = new THREE.Group();
@@ -143,9 +144,9 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   const deskDecor: THREE.Group[] = [];
   const deskScreens: THREE.Group[][] = [];
   const deskMats = {
-    top: new THREE.MeshLambertMaterial({ color: '#6E4B32' }),
-    leg: new THREE.MeshLambertMaterial({ color: '#3A2A1E' }),
-    chair: new THREE.MeshLambertMaterial({ color: '#20232B' }),
+    top: toon('#6E4B32'),
+    leg: toon('#3A2A1E'),
+    chair: toon('#20232B'),
   };
   const mbox = (m: THREE.Material, sx: number, sy: number, sz: number, x: number, y: number, z: number) => {
     const b = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), m);
@@ -163,7 +164,7 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
     const screens: THREE.Group[] = [];
     for (let k = 0; k < MAX_DESK_SCREENS; k++) {
       const sg = new THREE.Group();
-      const frame = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.47, 0.04), mat('#111'));
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.47, 0.04), mat('#2B2F36'));
       frame.castShadow = true;
       sg.add(frame);
       const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.68, 0.42), new THREE.MeshBasicMaterial({ map: k === 0 ? mon.tex : extraScreenTex((i + k) % 3) }));

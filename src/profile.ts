@@ -5,9 +5,13 @@ export const SUITS = ['#23314F', '#3A3A3F', '#6B2E2E', '#2E5B47', '#C9C3B5', '#5
 export const SKINS = ['#F2D3B8', '#E3B48F', '#C98E62', '#A86C45', '#7A4A2C', '#4E301C'];
 export const HAIR_COLORS = ['#1E1A17', '#5A3B22', '#A8743E', '#E2C27A', '#B9B9B9', '#C2412D'];
 export const TIES = ['#B22B2B', '#2B5DB2', '#D9A521', '#2E8B57', '#7E3FB2', '#E07A9B', '#111111', '#F2F2F2'];
-export const HAIR_STYLES = 5;
+export const HAIR_STYLES = 6;
 export const HATS = 5;
-export const GLASSES = 3;
+export const GLASSES = 4;
+export const BEARDS = 5;
+export const EYES = 4;
+export const MOUTHS = 5;
+export const BROWS = 4;
 
 export interface Profile {
   name: string;
@@ -21,6 +25,7 @@ export function randomLook(rnd: () => number = Math.random): Look {
   return {
     suit: pick(SUITS.length), skin: pick(SKINS.length), hair: pick(HAIR_STYLES), hairColor: pick(HAIR_COLORS.length),
     hat: rnd() < 0.6 ? 0 : 1 + pick(HATS - 1), tie: pick(TIES.length), glasses: rnd() < 0.6 ? 0 : 1 + pick(GLASSES - 1),
+    eyes: pick(EYES), mouth: pick(MOUTHS), brows: pick(BROWS), beard: rnd() < 0.55 ? 0 : 1 + pick(BEARDS - 1),
   };
 }
 
@@ -33,7 +38,7 @@ export function sanitizeLook(l: Partial<Look> | undefined): Look {
   return {
     suit: c(l?.suit, SUITS.length), skin: c(l?.skin, SKINS.length), hair: c(l?.hair, HAIR_STYLES),
     hairColor: c(l?.hairColor, HAIR_COLORS.length), hat: c(l?.hat, HATS), tie: c(l?.tie, TIES.length),
-    glasses: c(l?.glasses, GLASSES),
+    glasses: c(l?.glasses, GLASSES), eyes: c(l?.eyes, EYES), mouth: c(l?.mouth, MOUTHS), brows: c(l?.brows, BROWS), beard: c(l?.beard, BEARDS),
   };
 }
 

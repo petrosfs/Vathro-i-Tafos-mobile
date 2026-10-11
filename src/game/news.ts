@@ -1,14 +1,15 @@
 import { tr } from '../i18n';
 import type { GameState } from '../sim/engine';
 import {
-  BUST, BUST_FALSE, BUST_HINT, CRASH, GENERIC_DOWN, GENERIC_UP, IPO_DAY, IPO_HINT_COLD, IPO_HINT_HOT, MARKET_DOWN, MARKET_UP,
-  RUMOR_PREFIX, SPECIFIC,
+  ANALYST_DOWN, ANALYST_UP, BUST, BUST_FALSE, BUST_HINT, CRASH, EARN_BAD, EARN_GOOD, GENERIC_DOWN, GENERIC_UP, IPO_DAY,
+  IPO_HINT_COLD, IPO_HINT_HOT, MARKET_DOWN, MARKET_UP, RALLY, RUMOR_PREFIX, RUMOR_REL, SECTOR_NEWS, SPECIFIC,
 } from '../sim/headlines';
 import { RADAR_TICKS, SCOOP_COUNT, WIRE_TICKS } from '../sim/items';
 import { dayNews, type NewsEvent } from '../sim/market';
 import { SCREENS_TICKS } from '../sim/office';
 import { dayCtx, VENUE_NEWS_TICKS } from '../sim/engine';
-import { STOCKS } from '../sim/stocks';
+import { SECTORS, STOCKS } from '../sim/stocks';
+import { t as tt } from '../i18n';
 
 export function headline(n: NewsEvent): string {
   let t;
@@ -26,15 +27,35 @@ export function headline(n: NewsEvent): string {
     case 'bust-hint': t = BUST_HINT[n.text]; break;
     case 'bust': t = BUST[n.text]; break;
     case 'bust-false': t = BUST_FALSE[n.text]; break;
+    case 'sec-up': t = SECTOR_NEWS[n.sector ?? 0]?.up[n.text]; break;
+    case 'sec-down': t = SECTOR_NEWS[n.sector ?? 0]?.down[n.text]; break;
+    case 'earn-good': t = EARN_GOOD[n.text]; break;
+    case 'earn-bad': t = EARN_BAD[n.text]; break;
+    case 'analyst-up': t = ANALYST_UP[n.text]; break;
+    case 'analyst-down': t = ANALYST_DOWN[n.text]; break;
+    case 'rally': t = RALLY[n.text]; break;
   }
   let s = tr(t ?? GENERIC_UP[0]);
   if (n.stock >= 0) s = s.replace('{c}', tr(STOCKS[n.stock].name));
-  return (n.rumor ? tr(RUMOR_PREFIX) : '') + s;
+  const prefix = n.rumor ? (n.rel ? tr(RUMOR_REL).replace('{p}', String(n.rel)) : tr(RUMOR_PREFIX)) : '';
+  return prefix + s;
+}
+
+/** Η «ετικέτα» μιας είδησης: σύμβολο μετοχής, κλάδος ή «Αγορά». */
+export function newsTag(n: NewsEvent): string {
+  if (n.stock >= 0) return STOCKS[n.stock]?.ticker ?? '';
+  if (n.sector !== undefined) return tr(SECTORS[n.sector]?.name ?? SECTORS[0].name);
+  return tt('news.market');
+}
+
+/** Προγραμματισμένα αποτελέσματα που δεν έχουν βγει ακόμα (γνωστά σε όλους από το πρωί). */
+export function scheduledNews(s: GameState, tick: number): NewsEvent[] {
+  return newsOf(s).filter((n) => n.sched && n.tick > tick);
 }
 
 const cache = { key: '', news: [] as NewsEvent[] };
 export function newsOf(s: GameState): NewsEvent[] {
-  const key = `${s.seed}|${s.day}|${s.config.dayLen}|${(s.listed ?? []).join(',')}|${JSON.stringify(s.events ?? [])}`;
+  const key = `${s.seed}|${s.day}|${s.config.dayLen}|${(s.listed ?? []).join(',')}|${JSON.stringify(s.events ?? [])}|${JSON.stringify(s.boosts ?? [])}`;
   if (cache.key !== key) {
     cache.key = key;
     cache.news = dayNews(s.seed, s.day, s.config.dayLen, dayCtx(s));

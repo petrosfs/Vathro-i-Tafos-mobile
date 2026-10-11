@@ -1,13 +1,15 @@
 // Η μηχανή κανόνων. Την τρέχει μόνο ο host (ή το κινητό σου στο solo)· οι υπόλοιποι λαμβάνουν
 // την κατάσταση. Οι συναρτήσεις αλλάζουν την κατάσταση επί τόπου και δεν διαβάζουν ρολόι.
 
-import type { DayCtx, Difficulty, Effect, StockEvent } from './market';
-import { firstOpens } from './market';
+import type { Boost, DayCtx, Difficulty, Effect, StockEvent } from './market';
+import { bestLongGain, computeDay, firstOpens } from './market';
+import { GENERIC_UP, SPECIFIC } from './headlines';
 import {
   COFFEE_MAX, COFFEE_TICKS, HONEY_HEAT, INTEREST, INVENTORY_SLOTS, ITEM, ITEMS, LOAN_COST, LOAN_SHARE,
   SHOP_OFFERS, STOP_LOSS, type ConsumableId, type ItemId, type PerkId,
 } from './items';
 import { hash, stream, uniform } from './rng';
+import { newSlot, slotBets, spinSlot, type SlotState } from './slot';
 import {
   available, ESPRESSO_TICKS, KOURABIE_TICKS, MAX_DECOR, OFFICE, OFFICE_DEF, type DecorId, type OfficeId, type UpgradeId,
 } from './office';
@@ -25,6 +27,12 @@ export interface Look {
   hat: number;
   tie: number;
   glasses: number;
+  /** Πρόσωπο: μάτια, στόμα, φρύδια/έκφραση (προαιρετικά για παλιά προφίλ). */
+  eyes?: number;
+  mouth?: number;
+  brows?: number;
+  /** Μούσι: 0 κανένα, 1 μουστάκι, 2 γενάκι, 3 γένια, 4 αξύριστος. */
+  beard?: number;
 }
 
 export interface GameConfig {
@@ -147,6 +155,10 @@ export interface PlayerState {
   rate: number;
   /** Έξτρα οθόνες που αγόρασε για το γραφείο του. */
   screens: number;
+  /** Ρολόι: 0 κανένα, 1 χρυσό, 2 διαμαντένιο. */
+  watch: number;
+  /** Όπλο που πυροβολεί λεφτά. */
+  moneyGun: boolean;
   /** Αν είναι bot. */
   bot?: BotInfo;
 }
@@ -170,6 +182,8 @@ export interface DayResult {
   fine?: number;
   /** Εταιρείες που χρεωκόπησαν και βγήκαν από το χρηματιστήριο. */
   busts?: number[];
+  /** Η Επιτροπή σας έπιασε: τέλος, φυλακή. */
+  caught?: boolean;
 }
 
 export type LogKind = 'open' | 'close' | 'liq' | 'stop' | 'item' | 'buy' | 'eod' | 'hire' | 'fire' | 'move';
@@ -233,7 +247,7 @@ export interface GameState {
   rerolls: number;
   history: DayResult[];
   log: LogEntry[];
-  result: 'podium' | 'grave' | null;
+  result: 'podium' | 'grave' | 'jail' | null;
   /** Μέχρι ποιο tick έχουν ελεγχθεί stop-loss και ρευστοποιήσεις. */
   checked: number;
   nextId: number;
@@ -250,6 +264,8 @@ export interface GameState {
   sec: boolean;
   /** Πόσες «ύποπτες» κινήσεις (εσωτερική πληροφορία, φήμες, ρεπορτάζ) έγιναν σήμερα. */
   insider: number;
+  /** Κάποιος χρησιμοποίησε απαγορευμένο αντικείμενο τη μέρα της έρευνας. */
+  redHanded?: boolean;
   /** Ο χώρος του fund: 0 γκαράζ, 1 γραφείο σε πολυκατοικία, 2 Wall Street, 3 ρετιρέ. */
   venue: number;
   /** Μετοχές στο χρηματιστήριο (με σειρά εμφάνισης). */
@@ -264,6 +280,10 @@ export interface GameState {
   nextIpo: number;
   /** Μετά από μετακόμιση: νέα εισαγωγή την επόμενη μέρα. */
   moveIpo?: boolean;
+  /** Εγγυημένες ευκαιρίες της σημερινής μέρας. */
+  boosts?: Boost[];
+  /** Ο κουλοχέρης του γραφείου (καζάνι και τελευταία τραβήγματα). */
+  slot?: SlotState;
 }
 
 /** Πόσο «νευρική» είναι μια μετοχή: οι νέες κινούνται πολύ, οι παλιές ηρεμούν· ο πυρετός IPO διπλασιάζει. */
@@ -277,7 +297,59 @@ export function volMuls(s: GameState): Record<number, number> {
   return out;
 }
 
-export const dayCtx = (s: GameState): DayCtx => ({ listed: s.listed, events: s.events });
+export const dayCtx = (s: GameState): DayCtx => ({ listed: s.listed, events: s.events, boosts: s.boosts ?? [] });
+
+/**
+ * Πόσες φορές τον στόχο πρέπει να δίνει (τουλάχιστον) η καλύτερη ευκαιρία της μέρας μόνο με αγορές:
+ * έτσι ο στόχος είναι πάντα εφικτός, και η δυσκολία είναι να βρεις το σωστό μονοπάτι.
+ */
+export const OPPORTUNITY: Record<Difficulty, number> = { easy: 3, normal: 2, hard: 1.5 };
+
+const pricesFor = (s: GameState) => computeDay({
+  seed: s.seed, day: s.day, opens: s.opens, baseLen: s.config.dayLen, len: s.len,
+  effects: [], difficulty: s.config.difficulty, ctx: dayCtx(s), volMul: volMuls(s),
+});
+
+/** Η μεγαλύτερη απόδοση της μέρας μόνο με αγορές (ως 2 διαδοχικές συναλλαγές). */
+export const dayOpportunity = (s: GameState) => bestLongGain(pricesFor(s), s.listed, s.len);
+
+/**
+ * Αν η αγορά σήμερα δεν δίνει αρκετή ευκαιρία για τον στόχο, προσθέτει 1–2 ανοδικές κινήσεις:
+ * άλλοτε με είδηση, άλλοτε μόνο στο γράφημα. Ντετερμινιστικό από τον σπόρο.
+ */
+export function planBoosts(s: GameState) {
+  s.boosts = [];
+  const need = (OPPORTUNITY[s.config.difficulty] * s.quota) / Math.max(1, s.dayStartEquity);
+  if (!(need > 0) || dayOpportunity(s) >= need) return;
+  const u = (...k: number[]) => uniform(s.seed, s.day, 9500, ...k);
+  const dying = new Set(s.events.filter((e) => e.kind === 'bust' && e.day === s.day && e.real).map((e) => e.stock));
+  const pool = s.listed.filter((id) => !dying.has(id) && (s.born[id] ?? 0) < s.day);
+  const cands = pool.length ? pool : s.listed;
+  const target = need * 1.05;
+  const n = target > 0.5 ? 2 : 1;
+  const per = Math.log(1 + target) / n + 0.02;
+  const len = s.len;
+  const used: number[] = [];
+  for (let k = 0; k < n; k++) {
+    const left = cands.filter((id) => !used.includes(id));
+    const stock = (left.length ? left : cands)[Math.floor(u(1, k) * (left.length || cands.length))];
+    used.push(stock);
+    const news = u(2, k) < 0.5;
+    const dur = news ? 12 + Math.floor(u(3, k) * 18) : 60 + Math.floor(u(3, k) * 50);
+    const [a, b] = n === 1 ? [0.12, 0.6] : k === 0 ? [0.08, 0.35] : [0.5, 0.72];
+    const start = Math.min(len - dur - 10, Math.floor(len * (a + u(4, k) * (b - a))));
+    const spec = news && !!SPECIFIC[stock] && u(5, k) < 0.5;
+    const pool2 = spec ? SPECIFIC[stock].up.length : GENERIC_UP.length;
+    s.boosts.push({ stock, start: Math.max(8, start), dur, mag: per, news, spec, text: Math.floor(u(6, k) * pool2) });
+  }
+  // έλεγχος: ο θόρυβος μπορεί να «φάει» μέρος της κίνησης, οπότε τη μεγαλώνουμε όσο χρειάζεται
+  for (let i = 0; i < 4; i++) {
+    const got = dayOpportunity(s);
+    if (got >= need) return;
+    const extra = (Math.log(1 + target) - Math.log(1 + Math.max(0, got))) / n + 0.01;
+    for (const b of s.boosts) b.mag += extra;
+  }
+}
 export const isListed = (s: GameState, stock: number) => s.listed.includes(stock);
 
 /** Οι χώροι: πότε ανοίγει ο καθένας (× αρχικό κεφάλαιο) και πόσο κοστίζει η μετακόμιση. */
@@ -288,6 +360,12 @@ export const VENUES = [
   { glyph: '🌇', unlock: 8, coins: 16, cash: 3 },
 ];
 export const MAX_VENUE = VENUES.length - 1;
+
+/** Μόστρα: ρολόγια (χρυσό, διαμαντένιο) και όπλο που πυροβολεί λεφτά, από το πορτοφόλι. */
+export const WATCH_USD = [0, 500, 2000];
+export const MONEYGUN_USD = 300;
+export const watchPrice = (s: GameState, kind: number) => Math.round(((WATCH_USD[kind] ?? 0) * s.config.startCash) / 10000);
+export const moneyGunPrice = (s: GameState) => Math.round((MONEYGUN_USD * s.config.startCash) / 10000);
 
 /** Οθόνες στο γραφείο: 1 στο γκαράζ και στην πολυκατοικία, 2 από τη Wall Street, ως 6 με αγορές. */
 export const MAX_SCREENS = 6;
@@ -322,7 +400,10 @@ export type Action =
   | { t: 'hire'; tier: number; kind: 'team' | 'slave' }
   | { t: 'fire'; uid: string }
   | { t: 'move'; pay: 'coins' | 'cash' }
-  | { t: 'screen' };
+  | { t: 'screen' }
+  | { t: 'watch'; kind: number }
+  | { t: 'moneygun' }
+  | { t: 'spin'; bet: number };
 
 export type ActionError =
   | 'phase' | 'tick' | 'amount' | 'cash' | 'stock' | 'perk' | 'max' | 'gone' | 'owner'
@@ -361,7 +442,7 @@ export function newStats(): PlayerStats {
 }
 
 export function newPlayer(name: string, look: Look): PlayerState {
-  return { name, look, inv: [], lev: false, ready: false, stats: newStats(), dayPnl: 0, decor: [], wallet: 0, rate: 0, screens: 0 };
+  return { name, look, inv: [], lev: false, ready: false, stats: newStats(), dayPnl: 0, decor: [], wallet: 0, rate: 0, screens: 0, watch: 0, moneyGun: false };
 }
 
 export function createGame(
@@ -373,7 +454,7 @@ export function createGame(
     coins: START_COINS, perks: [], positions: [], effects: [], tips: [], scoops: [], honey: [], players: {},
     order: players.map((p) => p.uid), offers: [], rerolls: 0, history: [], log: [], result: null,
     checked: 0, nextId: 1, logN: 0, schema: SCHEMA, office: [], heat: 0, sec: false, insider: 0, venue: 0,
-    listed: startListed(seed), born: {}, events: [], gone: [], nextIpo: 3 + (hash(seed, 9900) % 2),
+    slot: newSlot(config.startCash), listed: startListed(seed), born: {}, events: [], gone: [], nextIpo: 3 + (hash(seed, 9900) % 2),
     unlocked: [...new Set(unlocked)].filter((id) => id in OFFICE_DEF) as OfficeId[],
   };
   for (const p of players) s.players[p.uid] = newPlayer(p.name, p.look);
@@ -558,8 +639,8 @@ export function applyAction(s: GameState, uid: string, a: Action, prices: Prices
       if (!id) return 'slot';
       const def = ITEM[id];
       if (def.needsStock && !(a.stock !== undefined && isListed(s, a.stock))) return 'stock';
-      // όσο ερευνά η Επιτροπή, κανείς δεν τολμά εσωτερικές πληροφορίες και φήμες
-      if (s.sec && SEC_BANNED.includes(id)) return 'sec';
+      // όσο ερευνά η Επιτροπή, όποιος τολμήσει εσωτερική πληροφορία ή φήμη πιάνεται (στο τέλος της μέρας)
+      if (s.sec && SEC_BANNED.includes(id)) s.redHanded = true;
       if (SEC_BANNED.includes(id)) s.insider = (s.insider ?? 0) + 1;
       switch (id) {
         case 'tip':
@@ -687,6 +768,39 @@ export function applyAction(s: GameState, uid: string, a: Action, prices: Prices
       log(s, { tick: -1, kind: 'hire', who: uid, tier, bk: a.kind });
       return null;
     }
+    case 'watch': {
+      if (s.phase !== 'shop') return 'phase';
+      const kind = a.kind === 2 ? 2 : 1;
+      if ((pl.watch ?? 0) >= kind) return 'owned';
+      const cost = watchPrice(s, kind);
+      if (pl.wallet < cost) return 'wallet';
+      pl.wallet = Math.round((pl.wallet - cost) * 100) / 100;
+      pl.watch = kind;
+      return null;
+    }
+    case 'moneygun': {
+      if (s.phase !== 'shop') return 'phase';
+      if (pl.moneyGun) return 'owned';
+      const cost = moneyGunPrice(s);
+      if (pl.wallet < cost) return 'wallet';
+      pl.wallet = Math.round((pl.wallet - cost) * 100) / 100;
+      pl.moneyGun = true;
+      return null;
+    }
+    case 'spin': {
+      // κουλοχέρης: από το πορτοφόλι, και ανάμεσα στις μέρες και την ώρα της αγοράς
+      if (s.phase === 'ended') return 'phase';
+      if (!s.office.includes('slot')) return 'locked';
+      const bets = slotBets(s.config.startCash);
+      const bet = bets[Math.round(Number(a.bet))];
+      if (!bet) return 'amount';
+      if (pl.wallet < bet) return 'wallet';
+      if (!s.slot) s.slot = newSlot(s.config.startCash);
+      if (!Array.isArray(s.slot.log)) s.slot.log = [];
+      const r = spinSlot(s.slot, s.seed, s.config.startCash, uid, bet);
+      pl.wallet = Math.round((pl.wallet - bet + r.win) * 100) / 100;
+      return null;
+    }
     case 'screen': {
       if (s.phase !== 'shop') return 'phase';
       const cost = screenPrice(s, pl);
@@ -779,6 +893,7 @@ export function startDay(s: GameState, startAt: number) {
     s.opens[e.stock] = Math.round(STOCKS[e.stock].base * (0.8 + 0.4 * uniform(s.seed, s.day, 9909, e.stock)) * 100) / 100;
   }
   planTomorrow(s);
+  planBoosts(s);
   for (const u of s.order) {
     const p = s.players[u];
     if (p) {
@@ -843,7 +958,11 @@ export function endDay(s: GameState, prices: Prices): DayResult {
   const lawyer = s.office.includes('lawyer');
   let fine = 0;
   const wasSec = !!s.sec;
+  const heat0 = s.heat ?? 0;
+  let caught = false;
   if (wasSec) {
+    // σύλληψη: πιθανότητα όσο οι υποψίες πάνω από 50% (μισή με δικηγόρο)
+    caught = !!s.redHanded || uniform(s.seed, s.day, 9200) < (Math.max(0, (s.heat ?? 0) - 50) / 100) * (lawyer ? 0.5 : 1);
     const rate = Math.min(0.3, 0.08 + (s.heat ?? 0) / 400) * (lawyer ? 0.5 : 1);
     fine = Math.round(Math.max(0, profit) * rate);
     s.cash -= fine;
@@ -853,7 +972,10 @@ export function endDay(s: GameState, prices: Prices): DayResult {
     if (lawyer) gain *= 0.5;
     s.heat = Math.max(0, Math.min(100, Math.round((s.heat ?? 0) + gain - 6)));
   }
+  // υποψίες 100%: η Επιτροπή έρχεται χωρίς προειδοποίηση
+  if (!caught && secEligible(s) && Math.max(heat0, s.heat ?? 0) >= 100) caught = true;
   s.sec = false;
+  s.redHanded = false;
   // τα bots-μέλη στολίζουν κι αυτά το γραφείο τους με το bonus τους
   for (const u of s.order) {
     const p = s.players[u];
@@ -914,7 +1036,11 @@ export function endDay(s: GameState, prices: Prices): DayResult {
   s.honey = [];
   for (const u of s.order) if (s.players[u]) s.players[u].lev = false;
   const over = bankruptRule ? bankrupt : !passed && !saved;
-  if (over) {
+  if (caught) {
+    r.caught = true;
+    s.phase = 'ended';
+    s.result = 'jail';
+  } else if (over) {
     s.phase = 'ended';
     s.result = 'grave';
   } else if (s.config.podiumDays > 0 && s.day >= s.config.podiumDays) {

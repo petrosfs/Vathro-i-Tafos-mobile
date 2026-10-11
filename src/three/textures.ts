@@ -268,6 +268,51 @@ export function bubbleTexture(text: string): THREE.CanvasTexture {
   return tex;
 }
 
+/** Συννεφάκι ομιλίας με κείμενο (ως 3 γραμμές). Επιστρέφει και την αναλογία πλάτους/ύψους. */
+export function speechTexture(text: string): { tex: THREE.CanvasTexture; aspect: number } {
+  const W = 360;
+  const measure = canvasTexture(8, 8, 1).ctx;
+  measure.font = `600 30px ${FONT}`;
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    const next = cur ? `${cur} ${w}` : w;
+    if (measure.measureText(next).width > W - 40 && cur) {
+      lines.push(cur);
+      cur = w;
+    } else cur = next;
+  }
+  if (cur) lines.push(cur);
+  if (lines.length > 3) {
+    lines.length = 3;
+    lines[2] = lines[2].replace(/.{0,2}$/, '…');
+  }
+  const wMax = Math.min(W, Math.max(120, ...lines.map((l) => measure.measureText(l).width + 44)));
+  const H = 26 + lines.length * 36 + 22;
+  const { tex, ctx } = canvasTexture(wMax, H, 2);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.strokeStyle = '#1B1B1B';
+  ctx.lineWidth = 3;
+  roundRect(ctx, 3, 3, wMax - 6, H - 26, 18);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(wMax / 2 - 12, H - 24);
+  ctx.lineTo(wMax / 2, H - 4);
+  ctx.lineTo(wMax / 2 + 12, H - 24);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillRect(wMax / 2 - 10, H - 28, 20, 6);
+  ctx.font = `600 30px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#111';
+  lines.forEach((l, i) => ctx.fillText(l, wMax / 2, 24 + i * 36 + 4));
+  tex.needsUpdate = true;
+  return { tex, aspect: wMax / H };
+}
+
 export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);

@@ -25,6 +25,8 @@ export function migrateState(raw: unknown): GameState {
   }
   for (const k of ['events', 'gone', 'honey'] as const) if (!Array.isArray(s[k])) s[k] = [];
   if (!s.born || typeof s.born !== 'object') s.born = {};
+  if (!s.slot || typeof s.slot !== 'object') s.slot = base.slot;
+  else s.slot = { pot: Number(s.slot.pot) || 0, spins: Number(s.slot.spins) || 0, log: Array.isArray(s.slot.log) ? s.slot.log : [] };
   s.opens = base.opens.map((v, i) => (Number.isFinite(s.opens[i]) ? s.opens[i] : v));
   s.players = { ...(r.players ?? {}) };
   for (const [uid, p] of Object.entries(s.players)) {

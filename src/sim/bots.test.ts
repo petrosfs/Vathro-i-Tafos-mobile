@@ -197,13 +197,30 @@ describe('Επιτροπή Κεφαλαιαγοράς', () => {
     // έρευνα
     startDay(s, 0);
     s.sec = true;
-    expect(applyAction(s, 'u0', { t: 'use', slot: 0, stock: s.listed[0], tick: 5 }, m.prices(s))).toBe('sec');
+    s.heat = 0;
     expect(applyAction(s, 'u0', { t: 'use', slot: 1, tick: 5 }, m.prices(s))).toBeNull(); // καφές: επιτρέπεται
     s.cash += s.quota * 2;
     const r = endDay(s, m.prices(s));
     expect(r.sec).toBe(true);
     expect(r.fine).toBeGreaterThan(0);
+    expect(r.caught).toBeFalsy();
     expect(s.sec).toBe(false);
+    // απαγορευμένο αντικείμενο τη μέρα της έρευνας: σύλληψη
+    const t = game(1, { difficulty: 'hard', endRule: 'bankrupt' });
+    t.players.u0.inv = ['tip'];
+    startDay(t, 0);
+    t.sec = true;
+    t.heat = 0;
+    expect(applyAction(t, 'u0', { t: 'use', slot: 0, stock: t.listed[0], tick: 5 }, m.prices(t))).toBeNull();
+    expect(endDay(t, m.prices(t)).caught).toBe(true);
+    expect(t.result).toBe('jail');
+    // υποψίες 100%: σύλληψη και χωρίς έρευνα
+    const u = game(1, { difficulty: 'hard', endRule: 'bankrupt' });
+    startDay(u, 0);
+    u.sec = false;
+    u.heat = 100;
+    u.insider = 3;
+    expect(endDay(u, m.prices(u)).caught).toBe(true);
   });
 
   it('με υψηλές υποψίες η έρευνα έρχεται κάποια στιγμή· στο Εύκολο ποτέ', () => {
@@ -283,5 +300,48 @@ describe('οθόνες', () => {
     const w = game(1);
     w.venue = 2;
     expect(screensOf(w, w.players.u0)).toBe(2);
+  });
+});
+
+describe('φυλακή και μόστρα', () => {
+  it('στην έρευνα, με υψηλές υποψίες, η Επιτροπή μπορεί να σας πιάσει: τέλος στη φυλακή', () => {
+    const m = new MarketCache();
+    let caught = 0;
+    let free = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const s = createGame(seed, { ...DEFAULT_CONFIG, difficulty: 'hard', endRule: 'bankrupt' }, [{ uid: 'u0', name: 'P', look }]);
+      startDay(s, 0);
+      s.sec = true;
+      s.heat = 90;
+      const r = endDay(s, m.prices(s));
+      if (r.caught) {
+        caught++;
+        expect(s.result).toBe('jail');
+        expect(s.phase).toBe('ended');
+      } else free++;
+      // με υποψίες ως 50% κανείς δεν πιάνεται
+      const z = createGame(seed, { ...DEFAULT_CONFIG, difficulty: 'hard', endRule: 'bankrupt' }, [{ uid: 'u0', name: 'P', look }]);
+      startDay(z, 0);
+      z.sec = true;
+      z.heat = 50;
+      expect(endDay(z, m.prices(z)).caught).toBeFalsy();
+    }
+    expect(caught).toBeGreaterThan(10);
+    expect(free).toBeGreaterThan(10);
+  });
+
+  it('ρολόγια και όπλο με λεφτά από το πορτοφόλι', () => {
+    const s = game(1);
+    const p = s.players.u0;
+    expect(applyAction(s, 'u0', { t: 'watch', kind: 1 }, flat)).toBe('wallet');
+    p.wallet = 3000;
+    expect(applyAction(s, 'u0', { t: 'watch', kind: 1 }, flat)).toBeNull();
+    expect(applyAction(s, 'u0', { t: 'watch', kind: 1 }, flat)).toBe('owned');
+    expect(applyAction(s, 'u0', { t: 'watch', kind: 2 }, flat)).toBeNull();
+    expect(p.watch).toBe(2);
+    expect(p.wallet).toBe(500);
+    expect(applyAction(s, 'u0', { t: 'moneygun' }, flat)).toBeNull();
+    expect(p.moneyGun).toBe(true);
+    expect(p.wallet).toBe(200);
   });
 });

@@ -5,7 +5,7 @@
 import type { Tr } from './stocks';
 
 export type DecorId = 'lamp' | 'cactus' | 'bonsai' | 'trophy' | 'lava' | 'frame' | 'globe' | 'bull' | 'goldfish' | 'duck';
-export type UpgradeId = 'espresso' | 'screens' | 'goldbell' | 'aquarium' | 'sofa' | 'neon' | 'kourabie' | 'tiger' | 'bonuspool' | 'lawyer' | 'doll';
+export type UpgradeId = 'espresso' | 'screens' | 'goldbell' | 'aquarium' | 'sofa' | 'neon' | 'kourabie' | 'tiger' | 'bonuspool' | 'lawyer' | 'doll' | 'slot';
 export type OfficeId = DecorId | UpgradeId;
 
 /** Πότε ξεκλειδώνει κάτι: φτάνοντας σε μέρα, ανεβαίνοντας στο βάθρο, ή με κέρδος σε μία παρτίδα. */
@@ -49,6 +49,9 @@ export const OFFICE: OfficeDef[] = [
   { id: 'doll', kind: 'upgrade', price: 3, glyph: '🎈', unlock: null,
     name: { el: 'Φουσκωτή κούκλα', en: 'Inflatable doll' },
     desc: { el: 'Η πιο πιστή υπάλληλος του fund: δεν παραπονιέται, δεν ζητάει bonus, δεν μιλάει στην Επιτροπή.', en: 'The fund’s most loyal employee: never complains, never asks for a bonus, never talks to the Commission.' } },
+  { id: 'slot', kind: 'upgrade', price: 3, glyph: '🎰', unlock: null,
+    name: { el: 'Κουλοχέρης', en: 'Slot machine' },
+    desc: { el: 'Ο καθένας τζογάρει τα δικά του. Ό,τι χάνεται μένει μέσα, μέχρι κάποιος να φέρει 7️⃣7️⃣7️⃣ και να τα πάρει όλα.', en: 'Everyone gambles their own money. Losses stay inside until someone hits 7️⃣7️⃣7️⃣ and takes it all.' } },
   { id: 'lawyer', kind: 'upgrade', price: 5, glyph: '⚖', unlock: null,
     name: { el: 'Δικηγόρος του fund', en: 'Fund lawyer' },
     desc: { el: 'Μισές υποψίες και μισό πρόστιμο από την Επιτροπή Κεφαλαιαγοράς.', en: 'Half the suspicion and half the fine from the Securities Commission.' } },

@@ -3,7 +3,7 @@ import { checkForUpdate, esc, go, h, type Screen } from '../app';
 import { getLang, money, resolveLang, setLang, t } from '../i18n';
 import { loadSettings, RESOLUTIONS, saveSettings, type PersonalSettings } from '../settings';
 import {
-  cleanName, GLASSES, HAIR_COLORS, HAIR_STYLES, HATS, loadProfile, randomLook, saveProfile, SKINS, SUITS, TIES,
+  BEARDS, BROWS, cleanName, EYES, GLASSES, HAIR_COLORS, MOUTHS, HAIR_STYLES, HATS, loadProfile, randomLook, saveProfile, SKINS, SUITS, TIES,
 } from '../profile';
 import type { GameState, Look } from '../sim/engine';
 import { deleteSave, loadSaves } from '../game/saves';
@@ -164,6 +164,10 @@ export function profileScreen(back: Screen, after?: () => void): Screen {
         <h3>${esc(t('profile.hairColor'))}</h3>${swatches('hairColor', HAIR_COLORS)}
         <h3>${esc(t('profile.hat'))}</h3>${options('hat', HATS, 'hat')}
         <h3>${esc(t('profile.glasses'))}</h3>${options('glasses', GLASSES, 'glasses')}
+        <h3>${esc(t('profile.beard'))}</h3>${options('beard', BEARDS, 'beard')}
+        <h3>${esc(t('profile.eyes'))}</h3>${options('eyes', EYES, 'eyes')}
+        <h3>${esc(t('profile.mouth'))}</h3>${options('mouth', MOUTHS, 'mouth')}
+        <h3>${esc(t('profile.brows'))}</h3>${options('brows', BROWS, 'brows')}
         <div class="row">
           <button class="btn ghost" data-random>🎲 ${esc(t('profile.random'))}</button>
           <button class="btn primary" data-save>${esc(t('profile.save'))}</button>

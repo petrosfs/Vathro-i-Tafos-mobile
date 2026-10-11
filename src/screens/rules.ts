@@ -21,6 +21,7 @@ const BODY = {
     <h3>Ο στόχος</h3>
     <ul>
       <li>Κάθε μέρα έχει <b>στόχο κέρδους</b>, που μεγαλώνει από μέρα σε μέρα (και με τον αριθμό των παικτών).</li>
+      <li>Ο στόχος είναι <b>πάντα εφικτός</b>: κάθε μέρα η αγορά δίνει τουλάχιστον μία ευκαιρία (μόνο με αγορές, ως 2 συναλλαγές) αρκετή για 3× τον στόχο στο Εύκολο, 2× στο Κανονικό, 1,5× στο Δύσκολο. Άλλοτε την προαναγγέλλει μια είδηση, άλλοτε φαίνεται μόνο στο γράφημα ως σταθερή άνοδος. Το να τη βρεις είναι δική σας δουλειά.</li>
       <li>Αν τον πιάσετε, παίρνετε νομίσματα για το κατάστημα, περισσότερα όσο τον ξεπερνάτε.</li>
       <li>Αν αποτύχετε, το fund κλείνει: <b>στον τάφο</b>. Αν αντέξετε όλες τις μέρες: <b>στο βάθρο</b>, με τους καλύτερους traders στα σκαλοπάτια.</li>
       <li>Με τη ρύθμιση «Μόνο με χρεωκοπία», ο χαμένος στόχος σημαίνει απλώς μηδέν νομίσματα· το fund κλείνει μόνο αν το ταμείο πέσει κάτω από ένα όριο του αρχικού κεφαλαίου (0–15%, προεπιλογή 10%, το ρυθμίζει ο host).</li>
@@ -30,8 +31,11 @@ const BODY = {
     <h3>Ειδήσεις</h3>
     <ul>
       <li>Οι ειδήσεις εμφανίζονται στον πίνακα και στην οθόνη <b>λίγο πριν</b> κινηθεί η τιμή. Γρήγορα δάχτυλα κερδίζουν.</li>
-      <li>Ό,τι γράφει <b>ΦΗΜΗ</b> μπορεί να βγει και ανάποδα.</li>
-      <li>Κάποιες μέρες έρχεται <b>κραχ</b>: πέφτουν όλες μαζί και μετά ανακάμπτουν λίγο.</li>
+      <li>Οι περισσότερες είναι μικρές· μερικές μεγάλες. Υπάρχουν ειδήσεις για μία εταιρεία, για έναν <b>κλάδο</b> (π.χ. ενέργεια, φάρμακα: κινούνται όλες οι μετοχές του) και για όλη την αγορά.</li>
+      <li>Οι <b>ΦΗΜΕΣ</b> γράφουν πόσο αξιόπιστη είναι η πηγή (30%, 50% ή 80%): τόσο συχνά βγαίνουν αληθινές, αλλιώς η τιμή πάει ανάποδα.</li>
+      <li><b>Αποτελέσματα</b> εταιρειών: είναι γνωστό από το πρωί ποια εταιρεία ανακοινώνει και πότε (📅 στο τερματικό). Λίγο πριν, οι <b>αναλυτές</b> δίνουν πρόβλεψη, σωστή 7 στις 10.</li>
+      <li>Κάποιες μέρες έρχεται <b>κραχ</b> (πέφτουν όλες μαζί και μετά ανακάμπτουν σχεδόν πλήρως) και, εξίσου συχνά, <b>ράλι</b> (ανεβαίνουν όλες μαζί).</li>
+      <li>Οι τιμές έχουν και <b>τάσεις</b> που κρατάνε αρκετή ώρα: όποιος διαβάζει το γράφημα κερδίζει.</li>
     </ul>
     <h3>Κατάστημα</h3>
     <p>Ανάμεσα στις μέρες ξοδεύετε τα νομίσματα. Τα <b>αναλώσιμα</b> μπαίνουν στην τσέπη όποιου τα αγοράζει (ως 4) και χρησιμοποιούνται μέσα στη μέρα. Τα <b>προνόμια</b> ισχύουν για όλη την ομάδα ως το τέλος.</p>
@@ -40,6 +44,7 @@ const BODY = {
       <li>Όταν η ομάδα πιάνει τον στόχο, ο καθένας παίρνει <b>bonus</b>: ένα ποσοστό (2, 3 ή 5%, από το setup) από τα κέρδη που έβγαλε εκείνη τη μέρα. Βγαίνει από το κοινό ταμείο και μπαίνει στο <b>προσωπικό του πορτοφόλι</b>.</li>
       <li>Το ποσοστό ανεβαίνει με το upgrade «Bonus pool» (+1% για όλους) και κατά +1% για όποιον πιάσει μόνος του τον στόχο μιας μέρας, ως 10%.</li>
       <li><b>Οθόνες</b>: μία στο γκαράζ και στην πολυκατοικία, δύο από τη Wall Street. Από το κατάστημα αγοράζεις έξτρα (ως 6), με τιμή που ανεβαίνει κάθε φορά· κάθε έξτρα οθόνη είναι ένα ακόμα γράφημα στο τερματικό σου.</li>
+      <li><b>Μόστρα</b>: χρυσό και διαμαντένιο ρολόι στον καρπό σου, και όπλο που πυροβολεί λεφτά (R ή 💸, και στα πάρτι).</li>
       <li>Με το πορτοφόλι στολίζεις το δικό σου γραφείο και προσλαμβάνεις τον «σκλάβο» σου. Τα πράγματα για όλους τα πληρώνει η ομάδα με νομίσματα.</li>
     </ul>
     <h3>Ο χώρος σας</h3>
@@ -59,7 +64,8 @@ const BODY = {
     <ul>
       <li>Στη Δύσκολη πάντα, στην Κανονική όταν το ταμείο φτάσει 3× το αρχικό κεφάλαιο (στην Εύκολη ποτέ).</li>
       <li>Οι <b>υποψίες</b> ανεβαίνουν με εσωτερικές πληροφορίες, φήμες, ρεπορτάζ και με κέρδη πολύ πάνω από τον στόχο, και πέφτουν λίγο κάθε μέρα.</li>
-      <li>Μια μέρα μπορεί να έρθει <b>έρευνα</b>: απαγορεύονται αυτά τα αντικείμενα και στο τέλος της μέρας πληρώνετε πρόστιμο από τα κέρδη. Ο «Δικηγόρος του fund» κόβει στο μισό υποψίες και πρόστιμο.</li>
+      <li>Μια μέρα μπορεί να έρθει <b>έρευνα</b>: στο τέλος της μέρας πληρώνετε πρόστιμο από τα κέρδη. Ο «Δικηγόρος του fund» κόβει στο μισό υποψίες, πρόστιμο και πιθανότητα σύλληψης.</li>
+      <li><b>Σύλληψη</b> (τέλος, στη φυλακή): αν τη μέρα της έρευνας χρησιμοποιήσετε εσωτερική πληροφορία, φήμη, ρεπορτάζ ή «απόσπαση πληροφορίας»· με πιθανότητα ίση με τις υποψίες μείον 50% σε κάθε έρευνα· και πάντα αν οι υποψίες φτάσουν 100%.</li>
     </ul>`,
   en: `
     <p>You and up to 9 friends open a Wall Street hedge fund with almost no money. You share <b>one balance</b>: one player’s profit saves the team, another’s loss sinks it.</p>
@@ -73,6 +79,7 @@ const BODY = {
     <h3>The quota</h3>
     <ul>
       <li>Every day has a <b>profit quota</b> that grows day by day (and with the number of players).</li>
+      <li>The quota is <b>always reachable</b>: every day the market offers at least one opportunity (buying only, up to 2 trades) worth 3× the quota on Easy, 2× on Normal, 1.5× on Hard. Sometimes a headline announces it, sometimes it only shows on the chart as a steady climb. Finding it is up to you.</li>
       <li>Hit it and you earn coins for the shop, more the further you beat it.</li>
       <li>Miss it and the fund closes: <b>into the grave</b>. Survive every day: <b>onto the podium</b>, with the best traders on the steps.</li>
       <li>With the “Only when bankrupt” setting, a missed quota just means zero coins; the fund closes only if the balance drops below a threshold of the starting capital (0–15%, 10% by default, set by the host).</li>
@@ -82,8 +89,11 @@ const BODY = {
     <h3>News</h3>
     <ul>
       <li>Headlines appear on the board and on screen <b>just before</b> the price moves. Fast fingers win.</li>
-      <li>Anything marked <b>RUMOR</b> may turn out the other way.</li>
-      <li>Some days bring a <b>crash</b>: everything drops together, then recovers a little.</li>
+      <li>Most are small, a few are big. There is news about one company, about a <b>sector</b> (e.g. energy, pharma: all its stocks move) and about the whole market.</li>
+      <li><b>RUMORS</b> state how reliable the source is (30%, 50% or 80%): that is how often they come true; otherwise the price goes the other way.</li>
+      <li>Company <b>earnings</b>: from the morning everyone knows which company reports and when (📅 in the terminal). Shortly before, <b>analysts</b> give a forecast, right 7 times out of 10.</li>
+      <li>Some days bring a <b>crash</b> (everything drops together, then almost fully recovers) and, just as often, a <b>rally</b> (everything rises together).</li>
+      <li>Prices also have <b>trends</b> that last a while: chart readers win.</li>
     </ul>
     <h3>Shop</h3>
     <p>Between days you spend coins. <b>Consumables</b> go into the buyer’s pocket (up to 4) and are used during the day. <b>Perks</b> apply to the whole team until the end.</p>
@@ -92,6 +102,7 @@ const BODY = {
       <li>When the team hits the quota, everyone gets a <b>bonus</b>: a percentage (2, 3 or 5%, from the setup) of the profit they made that day. It is paid from the shared balance into their <b>personal wallet</b>.</li>
       <li>The rate grows with the “Bonus pool” upgrade (+1% for everyone) and by +1% for anyone who hits a day’s quota single-handedly, up to 10%.</li>
       <li><b>Screens</b>: one in the garage and the apartment office, two from Wall Street up. Buy extra ones in the shop (up to 6), each pricier than the last; every extra screen is one more chart in your terminal.</li>
+      <li><b>Show-off</b>: a gold and a diamond watch on your wrist, and a money gun (R or 💸, at parties too).</li>
       <li>With your wallet you decorate your own desk and hire your minion. Things for everyone are paid by the team with coins.</li>
     </ul>
     <h3>Your premises</h3>
@@ -111,7 +122,8 @@ const BODY = {
     <ul>
       <li>Always on Hard; on Normal once the balance reaches 3× the starting capital (never on Easy).</li>
       <li><b>Suspicion</b> rises with insider tips, rumours, scoops and profits far above the quota, and falls a little every day.</li>
-      <li>Some day an <b>investigation</b> may come: those items are banned and at day end you pay a fine on the profit. The “Fund lawyer” halves both suspicion and fines.</li>
+      <li>Some day an <b>investigation</b> may come: at day end you pay a fine on the profit. The “Fund lawyer” halves suspicion, fines and the chance of arrest.</li>
+      <li><b>Arrest</b> (game over, jail): if you use an insider tip, rumour, scoop or pillow-talk intel on an investigation day; with a chance equal to suspicion minus 50% on every investigation; and always if suspicion hits 100%.</li>
     </ul>`,
 };
 
@@ -150,15 +162,15 @@ const CONTROLS = {
   el: `
     <h3>Χειρισμός</h3>
     <ul>
-      <li><b>Υπολογιστής:</b> κλικ στη σκηνή για να κοιτάς με το ποντίκι, <b>WASD</b> ή βελάκια για περπάτημα (Shift για τρέξιμο), <b>E</b> ανοίγει/κλείνει το τερματικό ή το κατάστημα, <b>Q</b> ανοίγει/κλείνει το κατάστημα από οπουδήποτε, <b>Esc</b> μενού, <b>Enter</b> chat, <b>T</b> τερματικό με τη σταθερή κάμερα.</li>
-      <li><b>Κινητό:</b> joystick αριστερά, σύρσιμο δεξιά για να κοιτάς, κουμπιά κάτω.</li>
+      <li><b>Υπολογιστής:</b> κλικ στη σκηνή για να κοιτάς με το ποντίκι, <b>WASD</b> ή βελάκια για περπάτημα (Shift για τρέξιμο), <b>E</b> ανοίγει/κλείνει το τερματικό ή το κατάστημα, <b>Q</b> ανοίγει/κλείνει το κατάστημα από οπουδήποτε, <b>Esc</b> μενού, <b>T</b> ή <b>Enter</b> μίλα (έτοιμες φράσεις με φωνή ή δικό σου κείμενο, σε συννεφάκι πάνω από τον χαρακτήρα), <b>F</b> κωλοδάχτυλο στον συνάδελφο που κοιτάς, <b>R</b> όπλο με λεφτά, <b>E</b> τερματικό με τη σταθερή κάμερα.</li>
+      <li><b>Κινητό:</b> joystick αριστερά, σύρσιμο δεξιά για να κοιτάς, κουμπιά κάτω (🗣 μίλα, 🖕 κωλοδάχτυλο). Μέσα στο τερματικό τα ίδια κουμπιά είναι πάνω δεξιά.</li>
       <li>Την κάμερα (πρώτο πρόσωπο, τρίτο πρόσωπο, από ψηλά) και την ανάλυση τις αλλάζεις από το μενού.</li>
     </ul>`,
   en: `
     <h3>Controls</h3>
     <ul>
-      <li><b>Computer:</b> click the scene to look with the mouse, <b>WASD</b> or arrows to walk (Shift to run), <b>E</b> opens/closes the terminal or shop, <b>Q</b> opens/closes the shop from anywhere, <b>Esc</b> menu, <b>Enter</b> chat, <b>T</b> terminal with the fixed camera.</li>
-      <li><b>Phone:</b> joystick on the left, drag on the right to look, buttons at the bottom.</li>
+      <li><b>Computer:</b> click the scene to look with the mouse, <b>WASD</b> or arrows to walk (Shift to run), <b>E</b> opens/closes the terminal or shop, <b>Q</b> opens/closes the shop from anywhere, <b>Esc</b> menu, <b>T</b> or <b>Enter</b> talk (ready phrases with a voice or your own text, in a bubble over your character), <b>F</b> middle finger to the colleague you are looking at, <b>R</b> money gun, <b>E</b> terminal with the fixed camera.</li>
+      <li><b>Phone:</b> joystick on the left, drag on the right to look, buttons at the bottom (🗣 talk, 🖕 middle finger). Inside the terminal the same buttons are at the top right.</li>
       <li>Change the camera (first person, third person, overhead) and the resolution from the menu.</li>
     </ul>`,
 };

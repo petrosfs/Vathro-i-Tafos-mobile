@@ -3,10 +3,10 @@ import { esc, h } from '../app';
 import { money, pct, price, signed, t, tr } from '../i18n';
 import { ITEM, TIP_TICKS } from '../sim/items';
 import { EFFECT_LEN } from '../sim/market';
-import { STOCKS } from '../sim/stocks';
-import { screensOf } from '../sim/engine';
+import { SECTORS, STOCKS } from '../sim/stocks';
+import { screensOf, SEC_BANNED } from '../sim/engine';
 import type { GameController } from '../game/controller';
-import { crashIn, headline, honeyNews, scoopedNews, shownAt, visibleNews } from '../game/news';
+import { crashIn, headline, honeyNews, newsTag, scheduledNews, scoopedNews, shownAt, visibleNews } from '../game/news';
 import { drawChart, drawSpark } from './chart';
 import { logLine } from './logLine';
 import { sfx } from '../audio';
@@ -27,6 +27,7 @@ export class Terminal {
   private lastRev = -1;
   private posKey = '';
   private lastTrading = false;
+  private tickerKey = '\u0000';
 
   constructor(private g: GameController, onClose: () => void) {
     this.el = h(`
@@ -35,34 +36,41 @@ export class Terminal {
           <h2>${esc(t('term.title'))}</h2>
           <button class="icon-btn" data-close aria-label="${esc(t('close'))}">✕</button>
         </header>
-        <div class="panel-body">
-          <div class="tiles"></div>
-          <div class="chart-box">
-            <div class="chart-title"><b class="ct-name"></b><span class="ct-price"></span></div>
-            <canvas class="chart"></canvas>
-            <div class="chart-legend" hidden>┄ ${esc(t('term.future'))}</div>
-          </div>
-          <div class="extra-charts"></div>
-          <div class="trade">
-            <div class="amount-row">
-              <span class="muted">${esc(t('term.amount'))}</span>
-              <div class="chips"></div>
-              <b class="amount-val"></b>
+        <div class="news-ticker" aria-hidden="true"><div class="nt-track"></div></div>
+        <div class="panel-body term-grid">
+          <div class="term-col col-chart">
+            <div class="tiles"></div>
+            <div class="chart-box">
+              <div class="chart-title"><b class="ct-name"></b><span class="ct-price"></span></div>
+              <canvas class="chart"></canvas>
+              <div class="chart-legend" hidden>┄ ${esc(t('term.future'))}</div>
             </div>
-            <div class="trade-btns">
-              <button class="btn buy" data-buy>${esc(t('term.buy'))}</button>
-              <button class="btn short" data-short>${esc(t('term.short'))}</button>
-            </div>
-            <div class="lev-note" hidden>${esc(t('term.lev'))}</div>
+            <div class="extra-charts"></div>
           </div>
-          <h3>${esc(t('term.items'))}</h3>
-          <div class="items"></div>
-          <h3 class="pos-h"><span>${esc(t('term.positions'))}</span><button class="link" data-closeall>${esc(t('term.closeAll'))}</button></h3>
-          <div class="positions"></div>
-          <h3>${esc(t('term.news'))}</h3>
-          <div class="news"></div>
-          <h3>${esc(t('term.feed'))}</h3>
-          <div class="feed"></div>
+          <div class="term-col col-trade">
+            <div class="trade">
+              <div class="amount-row">
+                <span class="muted">${esc(t('term.amount'))}</span>
+                <div class="chips"></div>
+                <b class="amount-val"></b>
+              </div>
+              <div class="trade-btns">
+                <button class="btn buy" data-buy>${esc(t('term.buy'))}</button>
+                <button class="btn short" data-short>${esc(t('term.short'))}</button>
+              </div>
+              <div class="lev-note" hidden>${esc(t('term.lev'))}</div>
+            </div>
+            <h3 class="pos-h"><span>${esc(t('term.positions'))}</span><button class="link" data-closeall>${esc(t('term.closeAll'))}</button></h3>
+            <div class="positions"></div>
+            <h3>${esc(t('term.items'))}</h3>
+            <div class="items"></div>
+          </div>
+          <div class="term-col col-news">
+            <h3>${esc(t('term.news'))}</h3>
+            <div class="news"></div>
+            <h3>${esc(t('term.feed'))}</h3>
+            <div class="feed"></div>
+          </div>
         </div>
       </section>`);
     const ex = this.el.querySelector('.extra-charts')!;
@@ -116,6 +124,9 @@ export class Terminal {
     this.el.querySelector('.items')!.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-slot]');
       if (!b) return;
+      const s = this.g.s;
+      const id = this.g.me()?.inv[Number(b.dataset.slot)];
+      if (s?.sec && id && SEC_BANNED.includes(id) && !confirm(t('sec.redConfirm'))) return;
       this.g.send({ t: 'use', slot: Number(b.dataset.slot), stock: this.selected, tick: this.g.tick() });
       b.setAttribute('disabled', '');
       sfx.item();
@@ -149,7 +160,7 @@ export class Terminal {
       series: series[sel], now: tf, len: s.len, color: STOCKS[sel].color,
       future: tip ? { from: tick, to: tip.from + TIP_TICKS } : null,
       markers: s.positions.filter((q) => q.stock === sel && q.owner === g.uid).map((q) => ({ tick: q.tick, price: q.entry, side: q.side })),
-      news: visibleNews(s, tick).filter((n) => n.stock === sel || n.stock === -1).map((n) => ({ tick: Math.max(0, shownAt(s, n)), dir: n.dir })),
+      news: visibleNews(s, tick).filter((n) => n.stock === sel || (n.stock === -1 && (n.sector === undefined || SECTORS[n.sector]?.id === STOCKS[sel]?.sector))).map((n) => ({ tick: Math.max(0, shownAt(s, n)), dir: n.dir })),
       halts: s.effects.filter((e) => e.kind === 'halt' && e.stock === sel).map((e) => ({ from: e.start, to: e.start + EFFECT_LEN.halt })),
     });
     // οι έξτρα οθόνες ανανεώνονται πιο αραιά
@@ -319,11 +330,16 @@ export class Terminal {
     const box = this.el.querySelector('.news')!;
     const crash = crashIn(s, tick);
     const upcoming = scoopedNews(s, tick);
-    const seen = visibleNews(s, tick).slice(-6).reverse();
+    const seen = visibleNews(s, tick).slice(-10).reverse();
     const parts: string[] = [];
     if (crash !== null) parts.push(`<div class="news-line warn">⚠ ${esc(t('news.crash', { s: crash }))}</div>`);
     for (const n of upcoming) {
       parts.push(`<div class="news-line future">📰 <b>${esc(t('news.scoop', { s: Math.max(0, Math.ceil((shownAt(s, n) - tick) / 2)) }))}</b> ${esc(headline(n))}</div>`);
+    }
+    // προγραμματισμένα αποτελέσματα: όλοι ξέρουν πότε, όχι προς τα πού
+    for (const n of scheduledNews(s, tick)) {
+      const sec = Math.max(0, Math.ceil((n.tick - tick) / 2));
+      parts.push(`<div class="news-line sched">📅 <b>${esc(STOCKS[n.stock].ticker)}</b> ${esc(t('news.earnings', { s: `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}` }))}</div>`);
     }
     for (const n of honeyNews(s, tick)) {
       const truth = n.rumor ? ` <i>(${esc(t(n.real === n.dir ? 'news.rumorTrue' : 'news.rumorFalse'))})</i>` : '';
@@ -331,9 +347,21 @@ export class Terminal {
     }
     for (const n of seen) {
       const cls = n.crash ? 'down' : n.rumor ? 'rumor' : n.dir > 0 ? 'up' : 'down';
-      const tag = n.stock >= 0 ? STOCKS[n.stock].ticker : t('news.market');
+      const tag = newsTag(n);
       parts.push(`<div class="news-line ${cls}"><b>${esc(tag)}</b> ${esc(headline(n))}</div>`);
     }
     box.innerHTML = parts.join('') || `<p class="muted">${esc(t('term.noNews'))}</p>`;
+    // κινητό: κυλιόμενη μπάρα με τις τελευταίες ειδήσεις (πάνω από όλα, πάντα ορατή)
+    const tk = [
+      ...(crash !== null ? [`<span class="warn">⚠ ${esc(t('news.crash', { s: crash }))}</span>`] : []),
+      ...seen.slice(0, 4).map((n) => `<span><b>${esc(newsTag(n))}</b> ${esc(headline(n))}</span>`),
+    ].join('<i>•</i>');
+    if (tk !== this.tickerKey) {
+      this.tickerKey = tk;
+      const track = this.el.querySelector<HTMLElement>('.nt-track')!;
+      track.innerHTML = tk ? `<div>${tk}<i>•</i></div><div>${tk}<i>•</i></div>` : `<div class="muted">${esc(t('term.noNews'))}</div>`;
+      track.style.animationDuration = `${Math.max(12, tk.replace(/<[^>]+>/g, '').length / 6)}s`;
+      track.classList.toggle('run', !!tk);
+    }
   }
 }

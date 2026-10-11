@@ -8,12 +8,14 @@ import { ranking, screensOf, type GameState } from '../sim/engine';
 import { STOCKS } from '../sim/stocks';
 import { ITEM } from '../sim/items';
 import { GameController } from '../game/controller';
-import { crashIn, headline, shownAt, visibleNews } from '../game/news';
+import { crashIn, headline, newsTag, shownAt, visibleNews } from '../game/news';
 import type { Transport } from '../net/transport';
-import { World } from '../three/world';
+import { FINGER, MONEY_EMOTE, World } from '../three/world';
+import { decodeSay, SayBar, speak } from '../ui/say';
 import type { BoardData } from '../three/textures';
 import { Terminal } from '../ui/terminal';
 import { ShopPanel } from '../ui/shop';
+import { SlotPanel } from '../ui/slot';
 import { ChatPanel } from '../ui/chat';
 import { endScreen, type EndActions } from '../ui/endScreen';
 import { sanitizeLook } from '../profile';
@@ -34,7 +36,7 @@ export interface GameScreenOpts {
   endActions: (s: GameState) => EndActions;
 }
 
-type PanelKind = 'terminal' | 'shop' | 'chat' | 'menu' | 'rules';
+type PanelKind = 'terminal' | 'shop' | 'chat' | 'menu' | 'rules' | 'slot';
 
 const clock = (ticks: number) => {
   const sec = Math.max(0, Math.ceil(ticks / 2));
@@ -70,6 +72,9 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           <nav class="hud-bottom">
             <button class="hud-btn" data-ui="terminal">📈 <span>${esc(t('hud.terminal'))}</span></button>
             <button class="hud-btn" data-ui="shop">🛒 <span>${esc(t('hud.shop'))}</span></button>
+            <button class="hud-btn say-btn" data-say aria-label="${esc(t('hud.say'))}" title="${esc(t('hud.say'))}">🗣</button>
+            <button class="hud-btn finger-btn" data-finger aria-label="${esc(t('hud.finger'))}" title="${esc(t('hud.finger'))}">🖕</button>
+            <button class="hud-btn money-btn" data-money hidden aria-label="${esc(t('hud.moneyGun'))}" title="R · ${esc(t('hud.moneyGun'))}">💸</button>
             <button class="hud-btn" data-ui="chat">💬 <span>${esc(t('hud.chat'))}</span><i class="badge" hidden></i></button>
             <button class="hud-btn" data-ui="menu" aria-label="${esc(t('hud.menu'))}">☰</button>
           </nav>
@@ -82,6 +87,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
     const world = new World($('.stage'), {
       view: settings.view, quality: settings.quality, resolution: settings.resolution, reduceMotion: settings.reduceMotion,
       sensitivity: () => loadSettings().sensitivity, shopTitle: t('shop.title').toUpperCase(), shopSub: '🪙 → 📈', neonText: t('title'),
+      tv: { breaking: t('tv.breaking'), live: t('tv.live'), brand: t('tv.brand') },
     });
     world.myUid = g.uid;
     world.start();
@@ -92,6 +98,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
     let openedAt = 0;
     const terminal = new Terminal(g, () => closePanel());
     const shop = new ShopPanel(g, () => closePanel(), opts.forceStart ? () => opts.forceStart!() : null);
+    const slotPanel = new SlotPanel(g, () => closePanel());
     const chat = new ChatPanel(g.uid, (txt) => tr0.sendChat(txt), (e) => emote(e), () => closePanel());
     const menu = buildMenu();
     const rules = h(`
@@ -108,13 +115,14 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       closePanel(false);
       openedAt = performance.now();
       panel = k;
-      const p = k === 'terminal' ? terminal.el : k === 'shop' ? shop.el : k === 'chat' ? chat.el : k === 'rules' ? rules : menu;
+      const p = k === 'terminal' ? terminal.el : k === 'shop' ? shop.el : k === 'chat' ? chat.el : k === 'rules' ? rules : k === 'slot' ? slotPanel.el : menu;
       $('.panels').append(p);
       el.classList.add('panel-open', `open-${k}`);
       world.setUiOpen(true, k === 'terminal' ? (desk ?? g.desk(g.uid)) : null);
       tutorial.onPanel(k);
       if (k === 'terminal') terminal.update(true);
       if (k === 'shop') shop.update(true);
+      if (k === 'slot') slotPanel.update(true);
       if (k === 'chat') {
         chat.markRead();
         updateBadge();
@@ -147,7 +155,8 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       if (it.kind === 'shop') {
         if (g.s?.phase === 'shop') openPanel('shop');
         else toast(t('hud.closed'));
-      } else openPanel('terminal', it.index);
+      } else if (it.kind === 'slot') openPanel('slot');
+      else openPanel('terminal', it.index);
     }
     world.onInteract = interact;
     world.onEscape = () => {
@@ -159,10 +168,11 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       const typing = (e.target as HTMLElement)?.tagName === 'INPUT';
       if (e.key === 'Escape') {
         // Esc: κλείνει ό,τι είναι ανοιχτό, αλλιώς ανοίγει το μενού.
-        if (panel && performance.now() - openedAt > 300) closePanel();
+        if (sayBar.open) sayBar.toggle(false);
+        else if (panel && performance.now() - openedAt > 300) closePanel();
         else if (!panel && !ended) openPanel('menu');
         e.preventDefault();
-      } else if (!typing && e.code === 'KeyE' && (panel === 'terminal' || panel === 'shop') && performance.now() - openedAt > 200) {
+      } else if (!typing && e.code === 'KeyE' && (panel === 'terminal' || panel === 'shop' || panel === 'slot') && performance.now() - openedAt > 200) {
         // Το E ανοίγει και κλείνει το τερματικό (και το κατάστημα).
         closePanel();
         e.preventDefault();
@@ -172,20 +182,65 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         else if (g.s?.phase === 'shop') openPanel('shop');
         else toast(t('hud.closed'));
         e.preventDefault();
-      } else if (!typing && !panel && e.key === 'Enter') {
-        openPanel('chat');
+      } else if (!typing && !panel && e.code === 'KeyR' && g.s?.players[g.uid]?.moneyGun && !ended) {
+        // R: το όπλο με λεφτά
+        moneyGun();
         e.preventDefault();
-      } else if (!typing && e.code === 'KeyT' && world.view === 'overview') {
-        if (panel === 'terminal') closePanel();
-        else openPanel('terminal');
+      } else if (!typing && !ended && (e.code === 'KeyT' || (e.key === 'Enter' && panel !== 'chat'))) {
+        // T ή Enter: μίλα (χωρίς να κλείσει το τερματικό)
+        sayBar.toggle(true);
+        e.preventDefault();
+      } else if (!typing && !ended && e.code === 'KeyF') {
+        flipOff();
+        e.preventDefault();
+      } else if (!typing && !panel && e.code === 'KeyE' && world.view === 'overview') {
+        openPanel('terminal');
+        e.preventDefault();
       }
     };
     window.addEventListener('keydown', onKey);
 
+    // ---- κουβέντα και κωλοδάχτυλο ----
+    const sayBar = new SayBar((txt) => tr0.sendChat(txt), (open) => el.classList.toggle('saying', open));
+    el.append(sayBar.el);
+    el.querySelector('[data-say]')!.addEventListener('click', () => sayBar.toggle());
+    let lastFinger = 0;
+    function flipOff() {
+      if (world.eodPlaying || performance.now() - lastFinger < 3000) return;
+      const to = world.facing();
+      if (!to) return toast(t('finger.none'));
+      lastFinger = performance.now();
+      emote(FINGER + to);
+      toast(t('finger.sent', { name: g.name(to) }));
+    }
+    el.querySelector('[data-finger]')!.addEventListener('click', () => flipOff());
+    // και μέσα από το τερματικό (που σκεπάζει τα κάτω κουμπιά)
+    const termHead = terminal.el.querySelector('.panel-head')!;
+    const quick = h(`<div class="head-quick">
+      <button class="icon-btn" data-tsay title="${esc(t('hud.say'))}" aria-label="${esc(t('hud.say'))}">🗣</button>
+      <button class="icon-btn" data-tfinger title="${esc(t('hud.finger'))}" aria-label="${esc(t('hud.finger'))}">🖕</button>
+    </div>`);
+    termHead.insertBefore(quick, termHead.querySelector('[data-close]'));
+    quick.querySelector('[data-tsay]')!.addEventListener('click', () => sayBar.toggle());
+    quick.querySelector('[data-tfinger]')!.addEventListener('click', () => flipOff());
+    world.onFingered = (from) => {
+      toast(t('finger.got', { name: g.name(from) }), 'error', 3500);
+      sfx.thud();
+    };
+
+    let lastMoney = 0;
+    function moneyGun() {
+      if (world.eodPlaying || performance.now() - lastMoney < 2600) return;
+      lastMoney = performance.now();
+      emote(MONEY_EMOTE);
+      sfx.coin();
+    }
+    el.querySelector('[data-money]')!.addEventListener('click', () => moneyGun());
+
     function emote(e: string) {
       const now = tr0.now();
       world.emoteMine(e, now);
-      world.celebrate(1500);
+      if (!e.startsWith(FINGER)) world.celebrate(1500);
       pendingEmote = { e, et: now };
       sendPose(true);
     }
@@ -203,14 +258,24 @@ export function gameScreen(opts: GameScreenOpts): Screen {
     tr0.onPoses((poses) => world.setPoses(poses, tr0.now()));
 
     // ---- chat ----
+    let chatSeen = -1;
+    queueMicrotask(() => {
+      if (chatSeen < 0) chatSeen = 0;
+    });
     tr0.onChat((msgs) => {
-      const before = chat.unread;
       chat.set(msgs);
       if (panel === 'chat') chat.markRead();
       updateBadge();
-      if (chat.unread > before && panel !== 'chat') {
-        const m = msgs.at(-1);
-        if (m && m.uid !== g.uid) toast(`${m.name}: ${m.text}`);
+      // νέα μηνύματα: συννεφάκι πάνω από τον χαρακτήρα και φωνή για τις έτοιμες φράσεις
+      const fresh = chatSeen < 0 ? [] : msgs.slice(chatSeen);
+      chatSeen = msgs.length;
+      const now = tr0.now();
+      for (const m of fresh) {
+        if (now - m.at > 10000) continue;
+        const d = decodeSay(m.text);
+        world.say(m.uid, d.text, Date.now());
+        if (d.preset !== null) speak(d.text, m.uid);
+        if (m.uid !== g.uid && panel !== 'chat' && !world.isNear(m.uid)) toast(`${m.name || g.name(m.uid)}: ${d.text}`);
       }
     });
     function updateBadge() {
@@ -227,15 +292,19 @@ export function gameScreen(opts: GameScreenOpts): Screen {
     let ended = false;
     let playersKey = '';
     g.onChange((s, prev) => {
-      const pk = s.order.map((u) => `${u}:${s.players[u]?.name}:${JSON.stringify(s.players[u]?.look)}`).join('|');
+      const pk = s.order.map((u) => `${u}:${s.players[u]?.name}:${JSON.stringify(s.players[u]?.look)}:${s.players[u]?.watch ?? 0}`).join('|');
       if (pk !== playersKey) {
         playersKey = pk;
         world.setPlayers(s.order.filter((u) => s.players[u]).map((u, i) => ({
           uid: u, name: s.players[u].name, look: sanitizeLook(s.players[u].look), desk: i,
+          watch: s.players[u].watch ?? 0, gun: !!s.players[u].moneyGun,
         })));
       }
+      $('.money-btn').hidden = !s.players[g.uid]?.moneyGun || s.phase === 'ended';
       world.setDecor(s.order.map((u) => s.players[u]?.decor ?? []));
       world.setUpgrades(s.office ?? [], s.seed);
+      SlotPanel.announce(g, world.setSlot(s.slot, s.slot ? money(s.slot.pot) : ''));
+      slotPanel.update();
       world.setVenue(s.venue ?? 0);
       world.setScreens(world.office.deskScreens.map((_, d) => screensOf(s, s.players[s.order[d]])));
       if (prev && (prev.venue ?? 0) !== (s.venue ?? 0)) {
@@ -269,6 +338,12 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         lastErr = err.n;
       }
       if (lastLogN >= 0) {
+        // κερδοφόρο κλείσιμο: χαρτονομίσματα πάνω από το γραφείο (όσο μεγαλύτερο το κέρδος, τόσο περισσότερα)
+        for (const l of s.log) {
+          if (l.n <= lastLogN || (l.kind !== 'close' && l.kind !== 'stop') || (l.pnl ?? 0) <= 0) continue;
+          const d = s.order.indexOf(l.who);
+          if (d >= 0) world.moneyAtDesk(d, Math.max(4, Math.min(40, Math.round(((l.pnl ?? 0) / Math.max(1, s.config.startCash)) * 2000))));
+        }
         for (const l of s.log) {
           if (l.n <= lastLogN || l.who !== g.uid) continue;
           if (l.kind === 'close' || l.kind === 'eod') (l.pnl ?? 0) >= 0 ? sfx.profit() : sfx.loss();
@@ -321,13 +396,21 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         ended = true;
         closePanel(false);
         sfx.bell();
-        setTimeout(() => (s.result === 'podium' ? sfx.win() : sfx.lose()), 800);
+        const jail = s.result === 'jail';
+        setTimeout(() => (s.result === 'podium' ? sfx.win() : jail ? sfx.siren() : sfx.lose()), 800);
         world.showEnding(s.result ?? 'grave', ranking(s));
         el.classList.add('ending');
+        if (jail) {
+          const cap = $('.eod-caption');
+          cap.textContent = t('jail.caption');
+          cap.hidden = false;
+          setTimeout(() => toast(t('jail.megaphone'), 'error', 5000), 1200);
+          setTimeout(() => (cap.hidden = true), 9000);
+        }
         setTimeout(() => {
           if (!g.s) return;
           el.append(endScreen(g.s, g.uid, opts.endActions(g.s)));
-        }, 4200);
+        }, jail ? 12500 : 4200);
       }
       if (!prev && s.phase === 'shop') openPanel('shop');
       world.setShopOpen(s.phase === 'shop');
@@ -396,7 +479,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       el.querySelector<HTMLElement>('[data-ui="chat"]')!.hidden = !tr0.online;
       interactBtn.hidden = !fpMode || !!panel || !near || s.phase === 'ended' || (near.kind === 'shop' && s.phase !== 'shop');
       if (!interactBtn.hidden && near) {
-        const label = near.kind === 'shop' ? t('hud.interactShop') : t('hud.interactDesk');
+        const label = near.kind === 'shop' ? t('hud.interactShop') : near.kind === 'slot' ? t('hud.interactSlot') : t('hud.interactDesk');
         interactBtn.textContent = matchMedia('(pointer: coarse)').matches ? label : `E · ${label}`;
       }
       const hint = $('.fp-hint');
@@ -436,7 +519,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           if (shownNews.has(n.id)) continue;
           shownNews.add(n.id);
           if (tick - shownAt(s, n) > 8) continue;
-          showHeadline(n.stock >= 0 ? STOCKS[n.stock].ticker : t('news.market'), headline(n), n.crash ? 'crash' : n.rumor ? 'rumor' : n.dir > 0 ? 'up' : 'down');
+          showHeadline(newsTag(n), headline(n), n.crash ? 'crash' : n.rumor ? 'rumor' : n.dir > 0 ? 'up' : 'down');
         }
       }
     }
@@ -478,7 +561,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         progressText: trading
           ? `${t('hud.profit')} ${signed(profit)} / ${t('hud.quota')} ${money(s.quota)}`
           : `${t('shop.next', { d: s.day })}: ${money(s.quota)}`,
-        headline: news ? `${news.stock >= 0 ? STOCKS[news.stock].ticker + ' · ' : ''}${headline(news)}` : trading ? '' : `🛒 ${t('shop.title')}`,
+        headline: news ? `${newsTag(news)} · ${headline(news)}` : trading ? '' : `🛒 ${t('shop.title')}`,
         headlineColor: news ? (news.rumor ? '#C792EA' : news.dir > 0 ? '#3DDC84' : '#FF5C5C') : '#F5C542',
       };
     }
@@ -520,6 +603,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       if (!g.s) return;
       refreshHud();
       if (panel === 'terminal') terminal.update();
+      world.setMarketTime(g.s.phase === 'trading' ? Math.max(0, g.tick()) / Math.max(1, g.s.len) : g.s.phase === 'shop' ? 0 : 1);
       const now = Date.now();
       if (now - lastBoard > 480) {
         lastBoard = now;

@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { hash } from '../sim/rng';
 import { ROOM, type Box2 } from './office';
-import { canvasTexture, drawCarpet } from './textures';
+import { canvasTexture } from './textures';
+import { toon } from './avatar';
 
 /** Πάχος τοίχων (προς τα έξω από την κάτοψη). */
 const T = 0.3;
@@ -76,7 +77,8 @@ function planeGeo(w: number, h: number, tile: Tile): THREE.BufferGeometry {
   return g;
 }
 
-const lambert = (color: string, map?: THREE.Texture) => new THREE.MeshLambertMaterial({ color, map: map ?? null });
+/** Υλικά toon (σαν το υπόλοιπο γραφείο). */
+const lambert = (color: string, map?: THREE.Texture) => toon(color, map ?? null);
 
 function repeatTex(w: number, h: number, draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void): THREE.CanvasTexture {
   const { tex, ctx } = canvasTexture(w, h, 1);
@@ -202,6 +204,20 @@ function marbleTex() {
   });
 }
 
+function carpetTiles() {
+  // πλακάκια μοκέτας 50×50, μια υφή = 1 × 1 μ.
+  return repeatTex(128, 128, (ctx, w, h) => {
+    const r = rng(18);
+    for (let y = 0; y < 2; y++) {
+      for (let x = 0; x < 2; x++) {
+        ctx.fillStyle = (x + y) % 2 ? '#8E98A6' : '#98A2AF';
+        ctx.fillRect((x * w) / 2, (y * h) / 2, w / 2, h / 2);
+      }
+    }
+    speckle(ctx, w, h, 900, ['rgba(0,0,0,0.05)', 'rgba(255,255,255,0.06)'], r, 2);
+  });
+}
+
 function plasterTex(color: string, seed: number) {
   return repeatTex(128, 128, (ctx, w, h) => {
     ctx.fillStyle = color;
@@ -260,9 +276,9 @@ function facadeTex(style: FacadeStyle, seed: number) {
   return repeatTex(256, 256, (ctx, w, h) => {
     const r = rng(seed);
     const pal: Record<FacadeStyle, { wall: string; glass: string[]; lit: number; frame?: string }> = {
-      glass: { wall: '#5B6B7C', glass: ['#7F9CB8', '#8EAAC4', '#6E8DAA', '#9DB7CF'], lit: 0.03 },
-      stone: { wall: '#B8A88E', glass: ['#3E4A58', '#45515F', '#36414E'], lit: 0.06, frame: '#8C7E68' },
-      dark: { wall: '#2B323C', glass: ['#3C4A5C', '#46566A', '#334052'], lit: 0.12 },
+      glass: { wall: '#A9B8C8', glass: ['#BFD3E6', '#CFE0EE', '#B3C9DD', '#D8E6F2'], lit: 0.02 },
+      stone: { wall: '#D8D2C6', glass: ['#8FA4B8', '#9DB1C4', '#8499AE'], lit: 0.04, frame: '#B9B1A2' },
+      dark: { wall: '#94A3B3', glass: ['#A9BDD0', '#B6C8DA', '#9FB3C8'], lit: 0.06 },
       apartment: { wall: '#E9E2D2', glass: ['#3F4954', '#56616D', '#4A5560'], lit: 0.02, frame: '#C9C1AE' },
       house: { wall: '#EFE6D6', glass: ['#4E6A82', '#5A7790'], lit: 0, frame: '#FFFFFF' },
       sunset: { wall: '#2C2638', glass: ['#E48A5A', '#C9705E', '#9C5A6E', '#5A4664'], lit: 0.35 },
@@ -410,7 +426,13 @@ interface Opening {
   /** Κάθετα και οριζόντια χωρίσματα (αριθμός). */
   cols?: number;
   transom?: number;
+  /** Πόρτα: χωρίς τζάμι (το φύλλο μπαίνει χωριστά). */
+  door?: boolean;
 }
+
+/** Η πόρτα του γραφείου (ανατολικός τοίχος): εδώ μπαίνει η αστυνομία. */
+export const DOOR = { z0: 1.3, z1: 2.5, h: 2.2 };
+const DOOR_OPENING: Opening = { a0: DOOR.z0, a1: DOOR.z1, y0: 0, y1: DOOR.h, door: true };
 
 type Side = 'S' | 'N' | 'W' | 'E';
 
@@ -470,9 +492,11 @@ function wall(b: Batch, glassB: Batch, glass: THREE.Material, side: Side, openin
     const gh = o.y1 - o.y0;
     const gy = (o.y0 + o.y1) / 2;
     const ga = (o.a0 + o.a1) / 2;
-    const pg = planeGeo(gw, gh, null);
-    if (along) glassB.add(pg, glass, ga, gy, c);
-    else glassB.add(pg, glass, c, gy, ga, Math.PI / 2);
+    if (!o.door) {
+      const pg = planeGeo(gw, gh, null);
+      if (along) glassB.add(pg, glass, ga, gy, c);
+      else glassB.add(pg, glass, c, gy, ga, Math.PI / 2);
+    }
     // εσωτερικό περβάζι
     if (st.sill && o.y0 > 0.2) {
       const d = 0.18;
@@ -527,12 +551,16 @@ function house(b: Batch, wallM: THREE.Material, roofM: THREE.Material, x: number
 export interface VenueBuild {
   group: THREE.Group;
   ceiling: THREE.Group;
+  /** Το φύλλο της πόρτας (περιστρέφεται γύρω από τον άξονα y). */
+  door: THREE.Group;
   colliders: Box2[];
   panels: THREE.Mesh[];
   fog: { color: string; near: number; far: number };
   light: { sky: string; ground: string; hemi: number; sun: string; sunI: number; sunPos: [number, number, number] };
   desk: { top: string; leg: string; chair: string };
   boardFrame: string;
+  /** Οι δείκτες του ρολογιού τοίχου. */
+  clock: { hour: THREE.Object3D; minute: THREE.Object3D };
   dispose: () => void;
 }
 
@@ -573,8 +601,24 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
     f.receiveShadow = true;
     group.add(f);
   };
-  const ceiling = (color: string) => {
-    const cm = new THREE.Mesh(new THREE.PlaneGeometry(W + 2 * T, D + 2 * T), new THREE.MeshBasicMaterial({ color }));
+  const ceiling = (color: string, tiles = false) => {
+    // ψευδοροφή: πλάκες 60×60 με μεταλλικό σκελετό
+    const map = tiles
+      ? tex(repeatTex(64, 64, (c, w, h) => {
+        c.fillStyle = '#FFFFFF';
+        c.fillRect(0, 0, w, h);
+        const r = rng(91);
+        for (let i = 0; i < 90; i++) {
+          c.fillStyle = 'rgba(0,0,0,0.05)';
+          c.fillRect(r() * w, r() * h, 1.5, 1.5);
+        }
+        c.fillStyle = '#B9BDC3';
+        c.fillRect(0, 0, w, 3);
+        c.fillRect(0, 0, 3, h);
+      }))
+      : null;
+    if (map) map.repeat.set((W + 2 * T) / 0.6, (D + 2 * T) / 0.6);
+    const cm = new THREE.Mesh(new THREE.PlaneGeometry(W + 2 * T, D + 2 * T), new THREE.MeshBasicMaterial({ color, map }));
     cm.rotation.x = Math.PI / 2;
     cm.position.y = H;
     group.add(cm);
@@ -658,7 +702,7 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
     wall(inside, glassB, glass, 'S', south, { ...st, frame: lambert('#F0EEE8'), fw: 0.04, sill: null });
     wall(inside, glassB, glass, 'W', [{ a0: 0.2, a1: 2.6, y0: 1.3, y1: 2.4, cols: 2 }], st);
     wall(inside, glassB, glass, 'N', [], st);
-    wall(inside, glassB, glass, 'E', [], st);
+    wall(inside, glassB, glass, 'E', [DOOR_OPENING], st);
     const doorM = lambert('#FFFFFF', tex(garageDoorTex()));
     const doorFrame = lambert('#8E8A82');
     for (const dc of doors) {
@@ -762,14 +806,14 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
     // ------------------------------------------------ γραφείο σε πολυκατοικία (2ος όροφος)
     const ground = -7.5;
     floorPlane(lambert('#FFFFFF', tex(woodTex(['#B98A57', '#AD7E4C', '#C29462', '#A47546'], 51))), [2, 2]);
-    ceiling('#EDEBE6');
+    ceiling('#EDEBE6', true);
     const plaster = lambert('#FFFFFF', tex(plasterTex('#E7DFD0', 52)));
     const st: WallStyle = { mat: plaster, tile: [2, 2], frame: lambert('#F4F4F2'), sill: lambert('#D8D2C4'), fw: 0.06 };
     const south: Opening[] = [-8.4, -2.8, 2.8, 8.4].map((x) => ({ a0: x - 1.2, a1: x + 1.2, y0: 0.9, y1: 3.0, cols: 2, transom: 2.5 }));
     wall(inside, glassB, glass, 'S', south, st);
     wall(inside, glassB, glass, 'W', [-1, 3.4].map((z) => ({ a0: z - 1, a1: z + 1, y0: 0.9, y1: 3.0, cols: 2, transom: 2.5 })), st);
     wall(inside, glassB, glass, 'N', [], st);
-    wall(inside, glassB, glass, 'E', [], st);
+    wall(inside, glassB, glass, 'E', [DOOR_OPENING], st);
     // στόρια μισοκατεβασμένα και καλοριφέρ κάτω από τα παράθυρα
     const blind = lambert('#F1ECE0');
     const rad = lambert('#F2F2F0');
@@ -843,21 +887,19 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
     const ground = pent ? -160 : -70;
     if (pent) floorPlane(lambert('#FFFFFF', tex(marbleTex())), [3, 3]);
     else {
-      const carpet = canvasTexture(256, 256, 1);
-      drawCarpet(carpet.ctx);
-      carpet.tex.wrapS = carpet.tex.wrapT = THREE.RepeatWrapping;
-      floorPlane(lambert('#FFFFFF', tex(carpet.tex)), [4, 4]);
+      // ανοιχτόχρωμη μοκέτα σε πλακάκια (φωτεινό, σύγχρονο γραφείο)
+      floorPlane(lambert('#FFFFFF', tex(carpetTiles())), [2, 2]);
     }
-    ceiling(pent ? '#F2EFEA' : '#2B3242');
-    const wallM = pent ? lambert('#FFFFFF', tex(plasterTex('#F1ECE4', 61))) : lambert('#FFFFFF', tex(plasterTex('#3B4458', 62)));
-    const frame = lambert(pent ? '#1B1B1D' : '#1A1E28');
-    const st: WallStyle = { mat: wallM, tile: [2, 2], frame, sill: pent ? null : lambert('#232836'), fw: pent ? 0.05 : 0.08 };
+    ceiling(pent ? '#F2EFEA' : '#E9ECF0', !pent);
+    const wallM = pent ? lambert('#FFFFFF', tex(plasterTex('#F1ECE4', 61))) : lambert('#FFFFFF', tex(plasterTex('#D9DEE5', 62)));
+    const frame = lambert(pent ? '#1B1B1D' : '#E4E7EC');
+    const st: WallStyle = { mat: wallM, tile: [2, 2], frame, sill: pent ? null : lambert('#C9CED6'), fw: pent ? 0.05 : 0.08 };
     const y0 = pent ? 0.03 : 0.55;
     const y1 = pent ? H - 0.03 : 3.85;
     wall(inside, glassB, glass, 'S', [-9.5, -5.7, -1.9, 1.9, 5.7, 9.5].map((x) => ({ a0: x - 1.8, a1: x + 1.8, y0, y1, cols: 2 })), st);
     wall(inside, glassB, glass, 'W', [-4.6, 0, 4.6].map((z) => ({ a0: z - 2.2, a1: z + 2.2, y0, y1, cols: 2 })), st);
     wall(inside, glassB, glass, 'N', [], st);
-    wall(inside, glassB, glass, 'E', [], st);
+    wall(inside, glassB, glass, 'E', [DOOR_OPENING], st);
     if (pent) {
       // στρογγυλά χωνευτά φώτα και μεγάλο χαλί κάτω από τα γραφεία
       for (let x = -9; x <= 9; x += 3) for (const z of [-5, -1, 3, 6.5]) {
@@ -877,7 +919,7 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
     } else {
       for (const x of [-7, 0, 7]) for (const z of [-4, 2]) lightPanel('#FFF4DA', 3, 1, x, z);
       for (const [x, z] of [[-11, -7], [11, -7], [-11, 7], [11, 7], [-11, 2.9]] as [number, number][]) plant(x, z);
-      baseboard(lambert('#232836'));
+      baseboard(lambert('#8C95A3'));
     }
 
     // έξω: πόλη σε πλέγμα, το κτίριο μας από κάτω, ουρανός
@@ -898,18 +940,190 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
       desk = { top: '#F2F2F0', leg: '#1A1A1A', chair: '#1A1A1A' };
       boardFrame = '#1A1A1A';
     } else {
-      sky({ stops: [[0, '#5A7FA8'], [0.42, '#B8CCDD'], [0.5, '#D9E2E8'], [1, '#6A6F75']], clouds: 22 });
-      fog = { color: '#C3CFD9', near: 80, far: 290 };
+      sky({ stops: [[0, '#3E86D6'], [0.42, '#93C5EF'], [0.5, '#D9EBF8'], [1, '#7C8A99']], clouds: 10 });
+      fog = { color: '#CFE2F0', near: 90, far: 300 };
       light = { sky: '#E6EEFF', ground: '#3A3024', hemi: 1.4, sun: '#FFF2DD', sunI: 1.3, sunPos: [6, 10, 6] };
-      desk = { top: '#6E4B32', leg: '#3A2A1E', chair: '#20232B' };
+      desk = { top: '#E3E5E8', leg: '#2A2D33', chair: '#2A2F38' };
     }
   }
+  // ---- τοίχος με τον πίνακα: ασπροπίνακας, διπλώματα, πίνακας ανακοινώσεων, ρολόι, τουαλέτα
+  const wz = ROOM.minZ + 0.02;
+  const painted = (w: number, h: number, px: number, draw: (c: CanvasRenderingContext2D, W: number, H: number) => void) => {
+    const { tex: t2, ctx } = canvasTexture(Math.round(w * px), Math.round(h * px), 1);
+    draw(ctx, Math.round(w * px), Math.round(h * px));
+    t2.needsUpdate = true;
+    tex(t2);
+    return new THREE.MeshBasicMaterial({ map: t2, toneMapped: false });
+  };
+  const plaque = (m: THREE.Material, w: number, h: number, x: number, y: number, z = wz + 0.03) => {
+    const pm = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+    pm.position.set(x, y, z);
+    group.add(pm);
+    return pm;
+  };
+  const alu = lambert('#B9BEC6');
+  if (lv >= 1) {
+    // ασπροπίνακας με μουτζούρες από τη σύσκεψη
+    inside.box(alu, 2.3, 1.3, 0.04, -6.5, 1.65, wz + 0.01);
+    plaque(painted(2.2, 1.2, 160, (c, W, H) => {
+      c.fillStyle = '#FAFBFC';
+      c.fillRect(0, 0, W, H);
+      c.lineCap = 'round';
+      c.strokeStyle = '#1F5FBF';
+      c.lineWidth = 6;
+      c.beginPath();
+      c.moveTo(30, H - 40);
+      [[80, H - 70], [120, H - 55], [170, H - 110], [210, H - 95], [260, H - 150]].forEach(([x, y]) => c.lineTo(x, y));
+      c.stroke();
+      c.beginPath();
+      c.moveTo(240, H - 152);
+      c.lineTo(262, H - 150);
+      c.lineTo(255, H - 128);
+      c.stroke();
+      c.font = '700 44px "Comic Sans MS", "Marker Felt", cursive';
+      c.fillStyle = '#C62828';
+      c.fillText('BUY!!', 34, 62);
+      c.fillStyle = '#1B1B1B';
+      c.font = '600 28px "Comic Sans MS", "Marker Felt", cursive';
+      c.fillText('ΣΤΟΧΟΣ ↑↑↑', 190, 48);
+      c.fillText('1) Αγόρασε φτηνά', W - 240, H - 110);
+      c.fillText('2) Πούλα ακριβά', W - 240, H - 76);
+      c.fillText('3) $$$', W - 240, H - 42);
+      c.strokeStyle = '#2E7D32';
+      c.lineWidth = 4;
+      c.strokeRect(W - 254, H - 140, 232, 118);
+    }), 2.2, 1.2, -6.5, 1.65);
+    inside.box(alu, 1.6, 0.04, 0.08, -6.5, 1.0, wz + 0.05);
+    for (const [x, col] of [[-6.9, '#1F5FBF'], [-6.7, '#C62828'], [-6.5, '#2E7D32']] as [number, string][]) inside.box(lambert(col), 0.12, 0.025, 0.025, x, 1.035, wz + 0.06);
+    // διπλώματα σε κορνίζες
+    const dip = painted(0.42, 0.32, 200, (c, W, H) => {
+      c.fillStyle = '#FFF8E6';
+      c.fillRect(0, 0, W, H);
+      c.strokeStyle = '#C9A54A';
+      c.lineWidth = 5;
+      c.strokeRect(8, 8, W - 16, H - 16);
+      c.fillStyle = '#3A2A1A';
+      c.fillRect(W * 0.2, H * 0.22, W * 0.6, 7);
+      for (let k = 0; k < 3; k++) c.fillRect(W * 0.18, H * (0.42 + k * 0.1), W * 0.64, 3);
+      c.fillStyle = '#C62828';
+      c.beginPath();
+      c.arc(W * 0.78, H * 0.78, 10, 0, Math.PI * 2);
+      c.fill();
+    });
+    for (const [x, y] of [[-4.95, 2.05], [-4.4, 2.05], [-4.95, 1.55], [-4.4, 1.55]] as [number, number][]) {
+      inside.box(lambert('#4A3020'), 0.48, 0.38, 0.03, x, y, wz + 0.01);
+      plaque(dip, 0.42, 0.32, x, y);
+    }
+    // πόρτα τουαλέτας
+    inside.box(lambert('#E4E2DC'), 1.1, 2.25, 0.05, 10.55, 1.125, wz + 0.01);
+    inside.box(lambert(lv === 1 ? '#8A6440' : '#5F6B7A'), 0.95, 2.12, 0.04, 10.55, 1.06, wz + 0.04);
+    inside.box(lambert('#C9CED6'), 0.16, 0.035, 0.05, 10.8, 1.05, wz + 0.08);
+    plaque(painted(0.3, 0.2, 200, (c, W, H) => {
+      c.fillStyle = '#1E4F9C';
+      c.fillRect(0, 0, W, H);
+      c.fillStyle = '#FFFFFF';
+      c.font = '800 26px sans-serif';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText('WC', W / 2, H / 2 + 2);
+    }), 0.3, 0.2, 10.55, 1.6, wz + 0.07);
+    colliders.push({ minX: 10.0, maxX: 11.1, minZ: ROOM.minZ, maxZ: ROOM.minZ + 0.15 });
+    if (lv >= 2) {
+      // ψύκτης νερού και στη Wall Street
+      inside.box(lambert('#E8E8E8'), 0.4, 1.0, 0.4, 11.5, 0.5, -5.2);
+      inside.add(new THREE.CylinderGeometry(0.15, 0.15, 0.45, 12), lambert('#5FA8E8'), 11.5, 1.25, -5.2);
+      colliders.push({ minX: 11.2, maxX: 12, minZ: -5.5, maxZ: -4.9 });
+    }
+  }
+  // πίνακας ανακοινώσεων (φελλός με χαρτάκια) σε όλους τους χώρους
+  inside.box(lambert('#6E4B32'), 1.5, 1.0, 0.04, 8.35, 1.65, wz + 0.01);
+  plaque(painted(1.4, 0.9, 160, (c, W, H) => {
+    c.fillStyle = '#C99A62';
+    c.fillRect(0, 0, W, H);
+    const r = rng(77 + lv);
+    for (let i = 0; i < 260; i++) {
+      c.fillStyle = r() < 0.5 ? '#B98A54' : '#D7AB74';
+      c.fillRect(r() * W, r() * H, 3, 3);
+    }
+    const notes = ['#FFF176', '#FF8A80', '#80D8FF', '#CCFF90', '#FFFFFF', '#FFD180'];
+    for (let i = 0; i < 7; i++) {
+      const nx = 14 + (i % 4) * 54 + r() * 10;
+      const ny = 12 + Math.floor(i / 4) * 70 + r() * 10;
+      c.save();
+      c.translate(nx + 24, ny + 24);
+      c.rotate((r() - 0.5) * 0.3);
+      c.fillStyle = notes[i % notes.length];
+      c.fillRect(-24, -24, 48, i === 4 ? 60 : 48);
+      c.fillStyle = 'rgba(40,40,40,0.55)';
+      for (let k = 0; k < 3; k++) c.fillRect(-18, -12 + k * 10, 26 + r() * 10, 3);
+      c.fillStyle = ['#D32F2F', '#1976D2', '#388E3C'][i % 3];
+      c.beginPath();
+      c.arc(0, -20, 4, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
+    }
+  }), 1.4, 0.9, 8.35, 1.65);
+  // ρολόι τοίχου: δείχνει την ώρα της αγοράς (09:30 → 16:00)
+  const clock = new THREE.Group();
+  clock.position.set(8.35, 3.05, wz + 0.04);
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 32), lambert('#C9A54A'));
+  rim.rotation.x = Math.PI / 2;
+  clock.add(rim);
+  const face = new THREE.Mesh(new THREE.CircleGeometry(0.26, 32), painted(0.52, 0.52, 200, (c, W) => {
+    c.fillStyle = '#FFFDF5';
+    c.beginPath();
+    c.arc(W / 2, W / 2, W / 2, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = '#222';
+    c.font = '700 15px sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    for (let k = 1; k <= 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      c.fillText(String(k), W / 2 + Math.sin(a) * W * 0.38, W / 2 - Math.cos(a) * W * 0.38);
+    }
+  }));
+  face.position.z = 0.032;
+  clock.add(face);
+  const hand = (len: number, w: number, z: number) => {
+    const pivot = new THREE.Group();
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, len, 0.008), lambert('#1A1A1A'));
+    m.position.y = len / 2 - 0.02;
+    pivot.add(m);
+    pivot.position.z = z;
+    clock.add(pivot);
+    return pivot;
+  };
+  const hourHand = hand(0.14, 0.022, 0.04);
+  const minuteHand = hand(0.21, 0.014, 0.046);
+  group.add(clock);
+
+  // το φύλλο της πόρτας σε μεντεσέ (για να ανοίγει με φόρα στην έφοδο)
+  const door = new THREE.Group();
+  door.position.set(ROOM.maxX + 0.04, 0, DOOR.z0);
+  const leafCol = lv === 0 ? '#8A8F96' : lv === 1 ? '#7A5232' : lv === 2 ? '#2B3242' : '#1A1A1A';
+  const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.06, DOOR.h - 0.02, DOOR.z1 - DOOR.z0 - 0.02), lambert(leafCol));
+  leaf.position.set(0, DOOR.h / 2, (DOOR.z1 - DOOR.z0) / 2);
+  leaf.castShadow = true;
+  door.add(leaf);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), lambert('#D4AF37'));
+  knob.position.set(-0.06, 1.02, DOOR.z1 - DOOR.z0 - 0.15);
+  door.add(knob);
+  if (lv >= 1) {
+    // ταμπέλα με το όνομα του fund (μικρό τζαμάκι)
+    const pane = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.6), glass);
+    pane.rotation.y = -Math.PI / 2;
+    pane.position.set(-0.035, 1.55, (DOOR.z1 - DOOR.z0) / 2);
+    door.add(pane);
+  }
+  group.add(door);
   inside.build(group, { receive: true, cast: shadows });
   top.build(ceilingGroup);
   out.build(group);
   glassB.build(group);
   return {
-    group, ceiling: ceilingGroup, colliders, panels, fog, light, desk, boardFrame,
+    group, ceiling: ceilingGroup, door, colliders, panels, fog, light, desk, boardFrame,
+    clock: { hour: hourHand, minute: minuteHand },
     dispose: () => {
       group.traverse((o) => {
         const m = o as THREE.Mesh;

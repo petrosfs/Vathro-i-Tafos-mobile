@@ -7,6 +7,7 @@ import { makeMug } from './props';
 import { hash } from '../sim/rng';
 import { sfx } from '../audio';
 import type { Look } from '../sim/engine';
+import { makeMoneyGun, type MoneyFx } from './moneyFx';
 
 export type EodMood = 'great' | 'good' | 'meh' | 'bad';
 
@@ -85,6 +86,8 @@ export class EodScene {
     readonly spec: EodSpec,
     deskPos: { x: number; z: number }[],
     readonly ms = 7000,
+    private gunners: Set<Avatar> = new Set(),
+    private money: MoneyFx | null = null,
   ) {
     let n = 0;
     this.rnd = () => hash(spec.seed, 4242, n++) / 4294967296;
@@ -118,12 +121,14 @@ export class EodScene {
         ac.target = N > 1 ? (fight ? i ^ 1 : (i + 1 + Math.floor(this.rnd() * (N - 1))) % N) : -1;
         if (ac.target >= N) ac.target = (i + 1) % N;
       } else if (mood === 'meh') ac.role = 'sad';
+      else if (this.gunners.has(ac.a) && this.money) ac.role = 'shoot';
       else if (level >= 2 && i % 2 === 0) ac.role = 'drink';
       else ac.role = level >= 1 ? (i % 2 ? 'dance' : 'cheer') : 'cheer';
       // κατεύθυνση: προς τον στόχο στον καβγά, προς την κάμερα στο πάρτι
       const tgt = ac.target >= 0 ? this.actors[ac.target]?.spot : null;
       ac.ry = tgt ? Math.atan2(tgt.x - ac.spot.x, tgt.z - ac.spot.z) : mood === 'bad' ? Math.PI : 0;
-      if (ac.role === 'shoot') ac.a.hold(this.own(gun()));
+      if (ac.role === 'shoot' && mood !== 'bad') ac.a.hold(this.own(makeMoneyGun()));
+      else if (ac.role === 'shoot') ac.a.hold(this.own(gun()));
       else if (ac.role === 'drink') ac.a.hold(this.own(bottle()));
       ac.a.target.copy(ac.spot);
       ac.a.targetRy = Math.atan2(ac.spot.x - ac.a.group.position.x, ac.spot.z - ac.a.group.position.z);
@@ -270,7 +275,15 @@ export class EodScene {
         }
       }
       // πυροβολισμοί
-      if (ac.role === 'shoot') {
+      if (ac.role === 'shoot' && this.spec.mood !== 'bad') {
+        // πάρτι: «βρέχει» λεφτά πάνω από τους άλλους
+        const idx = Math.floor(ac.a.cycle / 0.3);
+        if (idx !== ac.last && this.money) {
+          ac.last = idx;
+          const dir = new THREE.Vector3(Math.sin(ac.a.group.rotation.y), 0.6, Math.cos(ac.a.group.rotation.y));
+          this.money.burst(ac.a.handWorld(), dir, 6, 3);
+        }
+      } else if (ac.role === 'shoot') {
         const idx = Math.floor(ac.a.cycle / 0.6);
         if (idx !== ac.last) {
           ac.last = idx;
@@ -399,7 +412,7 @@ export class EodScene {
   }
 }
 
-function gun(): THREE.Group {
+export function gun(): THREE.Group {
   const g = new THREE.Group();
   const black = mat('#141414');
   // κάννη κατά μήκος του χεριού (το χέρι «δείχνει» προς τα κάτω στο τοπικό του σύστημα)
