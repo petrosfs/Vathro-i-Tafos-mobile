@@ -8,7 +8,7 @@ describe('μεταφράσεις', () => {
     for (const lang of ['el', 'en'] as const) {
       for (const k of el) {
         const e = DICTS[lang][k as keyof typeof DICTS.el];
-        const s = typeof e === 'function' ? e({ n: 1, d: 1, s: 1, code: 'ABCD', name: 'x', who: 'x', stock: 'X', amt: '$1', pnl: '+$1', item: 'i', p: '1', q: '1', c: 1, t: 'X', url: 'u', names: 'a', len: 5, diff: 'x', days: 'x', cash: '$1', v: '1.0.0', max: 4, date: 'x', mine: '1', end: 'x' }) : e;
+        const s = typeof e === 'function' ? e({ n: 1, d: 1, s: 1, code: 'ABCD', name: 'x', who: 'x', stock: 'X', amt: '$1', pnl: '+$1', item: 'i', p: '1', q: '1', c: 1, t: 'X', url: 'u', names: 'a', len: 5, diff: 'x', days: 'x', cash: '$1', v: '1.0.0', max: 4, date: 'x', mine: '1', end: 'x', acc: 70, scan: 3, b: '$1', f: '$1', h: 5, bot: 'b', tier: 'x', venue: 'x' }) : e;
         expect(s.length, `${lang}:${k}`).toBeGreaterThan(0);
         expect(s, `${lang}:${k}`).not.toContain('undefined');
       }

@@ -16,7 +16,8 @@ export class Terminal {
   readonly el: HTMLElement;
   selected = 0;
   private frac = 0.25;
-  private tiles: HTMLElement[] = [];
+  private tiles = new Map<number, HTMLElement>();
+  private tilesKey = '';
   private chart: HTMLCanvasElement;
   private lastRev = -1;
   private posKey = '';
@@ -58,16 +59,12 @@ export class Terminal {
           <div class="feed"></div>
         </div>
       </section>`);
-    const tilesBox = this.el.querySelector('.tiles')!;
-    STOCKS.forEach((s, i) => {
-      const tile = h(`<button class="tile" style="--c:${s.color}"><b>${s.ticker}</b><span class="tp"></span><span class="tc"></span><canvas class="spark"></canvas></button>`);
-      tile.addEventListener('click', () => {
-        this.selected = i;
-        sfx.click();
-        this.update(true);
-      });
-      tilesBox.append(tile);
-      this.tiles.push(tile);
+    this.el.querySelector('.tiles')!.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-stock]');
+      if (!b) return;
+      this.selected = Number(b.dataset.stock);
+      sfx.click();
+      this.update(true);
     });
     const chips = this.el.querySelector('.chips')!;
     FRACTIONS.forEach((f) => {
@@ -134,6 +131,23 @@ export class Terminal {
     });
   }
 
+  /** Οι μετοχές του χρηματιστηρίου αλλάζουν με τις εισαγωγές και τις χρεωκοπίες. */
+  private syncTiles(listed: number[]) {
+    const key = listed.join(',');
+    if (key === this.tilesKey) return;
+    this.tilesKey = key;
+    const box = this.el.querySelector('.tiles')!;
+    box.innerHTML = '';
+    this.tiles.clear();
+    for (const i of listed) {
+      const st = STOCKS[i];
+      const tile = h(`<button class="tile" data-stock="${i}" style="--c:${st.color}"><b>${st.ticker}</b><span class="tp"></span><span class="tc"></span><canvas class="spark"></canvas></button>`);
+      box.append(tile);
+      this.tiles.set(i, tile);
+    }
+    if (!listed.includes(this.selected)) this.selected = listed[0] ?? 0;
+  }
+
   /** Ανανέωση. full=true όταν άλλαξε κάτι εκτός από τον χρόνο. */
   update(full = false) {
     const g = this.g;
@@ -143,8 +157,9 @@ export class Terminal {
     const series = g.series();
     const trading = s.phase === 'trading' && g.tickF() >= 0 && g.tickF() < s.len;
     // μετοχές
-    STOCKS.forEach((st, i) => {
-      const tile = this.tiles[i];
+    this.syncTiles(s.listed ?? []);
+    (s.listed ?? []).forEach((i) => {
+      const tile = this.tiles.get(i)!;
       const p = series[i][tick];
       const ch = p / series[i][0] - 1;
       tile.classList.toggle('sel', i === this.selected);
@@ -153,7 +168,6 @@ export class Terminal {
       tc.textContent = pct(ch);
       tc.className = `tc ${ch >= 0 ? 'up' : 'down'}`;
       drawSpark(tile.querySelector('canvas')!, series[i], tick);
-      void st;
     });
     // γράφημα
     const sel = this.selected;

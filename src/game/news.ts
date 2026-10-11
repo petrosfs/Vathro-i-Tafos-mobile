@@ -1,9 +1,13 @@
 import { tr } from '../i18n';
 import type { GameState } from '../sim/engine';
-import { CRASH, GENERIC_DOWN, GENERIC_UP, MARKET_DOWN, MARKET_UP, RUMOR_PREFIX, SPECIFIC } from '../sim/headlines';
+import {
+  BUST, BUST_FALSE, BUST_HINT, CRASH, GENERIC_DOWN, GENERIC_UP, IPO_DAY, IPO_HINT_COLD, IPO_HINT_HOT, MARKET_DOWN, MARKET_UP,
+  RUMOR_PREFIX, SPECIFIC,
+} from '../sim/headlines';
 import { RADAR_TICKS, SCOOP_COUNT, WIRE_TICKS } from '../sim/items';
 import { dayNews, type NewsEvent } from '../sim/market';
 import { SCREENS_TICKS } from '../sim/office';
+import { dayCtx, VENUE_NEWS_TICKS } from '../sim/engine';
 import { STOCKS } from '../sim/stocks';
 
 export function headline(n: NewsEvent): string {
@@ -16,6 +20,12 @@ export function headline(n: NewsEvent): string {
     case 'mkt-up': t = MARKET_UP[n.text]; break;
     case 'mkt-down': t = MARKET_DOWN[n.text]; break;
     case 'crash': t = CRASH[n.text]; break;
+    case 'ipo-hot': t = IPO_HINT_HOT[n.text]; break;
+    case 'ipo-cold': t = IPO_HINT_COLD[n.text]; break;
+    case 'ipo': t = IPO_DAY[n.text]; break;
+    case 'bust-hint': t = BUST_HINT[n.text]; break;
+    case 'bust': t = BUST[n.text]; break;
+    case 'bust-false': t = BUST_FALSE[n.text]; break;
   }
   let s = tr(t ?? GENERIC_UP[0]);
   if (n.stock >= 0) s = s.replace('{c}', tr(STOCKS[n.stock].name));
@@ -24,17 +34,18 @@ export function headline(n: NewsEvent): string {
 
 const cache = { key: '', news: [] as NewsEvent[] };
 export function newsOf(s: GameState): NewsEvent[] {
-  const key = `${s.seed}|${s.day}|${s.config.dayLen}`;
+  const key = `${s.seed}|${s.day}|${s.config.dayLen}|${(s.listed ?? []).join(',')}|${JSON.stringify(s.events ?? [])}`;
   if (cache.key !== key) {
     cache.key = key;
-    cache.news = dayNews(s.seed, s.day, s.config.dayLen);
+    cache.news = dayNews(s.seed, s.day, s.config.dayLen, dayCtx(s));
   }
   return cache.news;
 }
 
 /** Πότε βλέπει η ομάδα μια είδηση (νωρίτερα με τη συνδρομή στο πρακτορείο). */
 export const shownAt = (s: GameState, n: NewsEvent) =>
-  n.tick - (s.perks.includes('wire') ? WIRE_TICKS : 0) - (s.office?.includes('screens') ? SCREENS_TICKS : 0);
+  n.tick - (s.perks.includes('wire') ? WIRE_TICKS : 0) - (s.office?.includes('screens') ? SCREENS_TICKS : 0) -
+  (s.venue ?? 0) * VENUE_NEWS_TICKS;
 
 export function visibleNews(s: GameState, tick: number): NewsEvent[] {
   return newsOf(s).filter((n) => shownAt(s, n) <= tick);

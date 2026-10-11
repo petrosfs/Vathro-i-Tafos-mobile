@@ -47,7 +47,7 @@ export function putSave(s: GameState, online: boolean) {
   const id = saveId(s);
   const rec: SaveRec = {
     id, savedAt: Date.now(), v: APP_VERSION, online,
-    names: s.order.map((u) => s.players[u]?.name ?? '?'), day: s.day, cash: s.cash, state: structuredClone(s),
+    names: s.order.filter((u) => !s.players[u]?.bot).map((u) => s.players[u]?.name ?? '?'), day: s.day, cash: s.cash, state: structuredClone(s),
   };
   store([rec, ...loadSaves().filter((r) => r.id !== id)]);
 }

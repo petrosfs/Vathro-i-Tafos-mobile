@@ -1,6 +1,7 @@
 // Σελίδα «Πώς παίζεται».
 import { esc, go, h, type Screen } from '../app';
-import { getLang, t, tr } from '../i18n';
+import { getLang, money, t, tr } from '../i18n';
+import { DECOR_USD } from '../sim/engine';
 import { ITEMS } from '../sim/items';
 import { STOCKS } from '../sim/stocks';
 import { OFFICE } from '../sim/office';
@@ -31,7 +32,32 @@ const BODY = {
       <li>Κάποιες μέρες έρχεται <b>κραχ</b>: πέφτουν όλες μαζί και μετά ανακάμπτουν λίγο.</li>
     </ul>
     <h3>Κατάστημα</h3>
-    <p>Ανάμεσα στις μέρες ξοδεύετε τα νομίσματα. Τα <b>αναλώσιμα</b> μπαίνουν στην τσέπη όποιου τα αγοράζει (ως 4) και χρησιμοποιούνται μέσα στη μέρα. Τα <b>προνόμια</b> ισχύουν για όλη την ομάδα ως το τέλος.</p>`,
+    <p>Ανάμεσα στις μέρες ξοδεύετε τα νομίσματα. Τα <b>αναλώσιμα</b> μπαίνουν στην τσέπη όποιου τα αγοράζει (ως 4) και χρησιμοποιούνται μέσα στη μέρα. Τα <b>προνόμια</b> ισχύουν για όλη την ομάδα ως το τέλος.</p>
+    <h3>Πορτοφόλι και bonus</h3>
+    <ul>
+      <li>Όταν η ομάδα πιάνει τον στόχο, ο καθένας παίρνει <b>bonus</b>: ένα ποσοστό (2, 3 ή 5%, από το setup) από τα κέρδη που έβγαλε εκείνη τη μέρα. Βγαίνει από το κοινό ταμείο και μπαίνει στο <b>προσωπικό του πορτοφόλι</b>.</li>
+      <li>Το ποσοστό ανεβαίνει με το upgrade «Bonus pool» (+1% για όλους) και κατά +1% για όποιον πιάσει μόνος του τον στόχο μιας μέρας, ως 10%.</li>
+      <li>Με το πορτοφόλι στολίζεις το δικό σου γραφείο και προσλαμβάνεις τον «σκλάβο» σου. Τα πράγματα για όλους τα πληρώνει η ομάδα με νομίσματα.</li>
+    </ul>
+    <h3>Ο χώρος σας</h3>
+    <ul>
+      <li>Ξεκινάτε σε ένα <b>γκαράζ σπιτιού</b>. Όταν το ταμείο φτάσει 2×, 4× και 8× το αρχικό κεφάλαιο, μπορείτε να μετακομίσετε σε γραφείο πολυκατοικίας, σε όροφο στη Wall Street και τέλος στο ρετιρέ.</li>
+      <li>Η μετακόμιση πληρώνεται ή με νομίσματα ή με μετρητά από το κοινό ταμείο.</li>
+      <li>Κάθε επίπεδο δίνει +1 νόμισμα κάθε μέρα που πιάνετε τον στόχο και ειδήσεις 2″ νωρίτερα· αν το έχει ενεργό το setup, και +1% στο bonus όλων.</li>
+    </ul>
+    <h3>Bots</h3>
+    <ul>
+      <li>Στο setup μπορείς να βάλεις <b>bots</b> στην ομάδα: παίζουν μόνα τους από το κοινό ταμείο, μετράνε στον στόχο και παίρνουν bonus σαν παίκτες.</li>
+      <li>Στο κατάστημα προσλαμβάνεις κι άλλα. Το <b>bot ομάδας</b> πληρώνεται με νομίσματα και ό,τι βγάζει μένει στην ομάδα. Ο <b>«σκλάβος»</b> πληρώνεται από το πορτοφόλι σου, παίζει με κεφάλαιο του fund, και το κέρδος ή η ζημιά του πάει στο πορτοφόλι σου.</li>
+      <li>Τέσσερα επίπεδα: Ασκούμενος, Junior, Senior, Λύκος. Όσο ακριβότερο, τόσο πιο εύστοχο και με μεγαλύτερες θέσεις. Ο Ασκούμενος χάνει συχνά.</li>
+      <li>Κάθε bot πιάνει ένα γραφείο (ως 10 συνολικά). Τα bots που προσλαμβάνονται δεν ανεβάζουν τον στόχο και δεν μπαίνουν στο βάθρο.</li>
+    </ul>
+    <h3>Η Επιτροπή Κεφαλαιαγοράς</h3>
+    <ul>
+      <li>Στη Δύσκολη πάντα, στην Κανονική όταν το ταμείο φτάσει 3× το αρχικό κεφάλαιο (στην Εύκολη ποτέ).</li>
+      <li>Οι <b>υποψίες</b> ανεβαίνουν με εσωτερικές πληροφορίες, φήμες, ρεπορτάζ και με κέρδη πολύ πάνω από τον στόχο, και πέφτουν λίγο κάθε μέρα.</li>
+      <li>Μια μέρα μπορεί να έρθει <b>έρευνα</b>: απαγορεύονται αυτά τα αντικείμενα και στο τέλος της μέρας πληρώνετε πρόστιμο από τα κέρδη. Ο «Δικηγόρος του fund» κόβει στο μισό υποψίες και πρόστιμο.</li>
+    </ul>`,
   en: `
     <p>You and up to 9 friends open a Wall Street hedge fund with almost no money. You share <b>one balance</b>: one player’s profit saves the team, another’s loss sinks it.</p>
     <h3>The day</h3>
@@ -55,7 +81,32 @@ const BODY = {
       <li>Some days bring a <b>crash</b>: everything drops together, then recovers a little.</li>
     </ul>
     <h3>Shop</h3>
-    <p>Between days you spend coins. <b>Consumables</b> go into the buyer’s pocket (up to 4) and are used during the day. <b>Perks</b> apply to the whole team until the end.</p>`,
+    <p>Between days you spend coins. <b>Consumables</b> go into the buyer’s pocket (up to 4) and are used during the day. <b>Perks</b> apply to the whole team until the end.</p>
+    <h3>Wallet and bonus</h3>
+    <ul>
+      <li>When the team hits the quota, everyone gets a <b>bonus</b>: a percentage (2, 3 or 5%, from the setup) of the profit they made that day. It is paid from the shared balance into their <b>personal wallet</b>.</li>
+      <li>The rate grows with the “Bonus pool” upgrade (+1% for everyone) and by +1% for anyone who hits a day’s quota single-handedly, up to 10%.</li>
+      <li>With your wallet you decorate your own desk and hire your minion. Things for everyone are paid by the team with coins.</li>
+    </ul>
+    <h3>Your premises</h3>
+    <ul>
+      <li>You start in a <b>home garage</b>. When the balance reaches 2×, 4× and 8× the starting capital you can move to an apartment-block office, a Wall Street floor and finally the penthouse.</li>
+      <li>Moving is paid either with coins or with cash from the shared balance.</li>
+      <li>Every level gives +1 coin for each day you hit the quota and headlines 2″ earlier; if enabled in the setup, also +1% on everyone’s bonus.</li>
+    </ul>
+    <h3>Bots</h3>
+    <ul>
+      <li>In the setup you can add <b>bots</b> to the team: they trade on their own from the shared balance, count towards the quota and get a bonus like players.</li>
+      <li>In the shop you can hire more. A <b>team bot</b> is paid with coins and everything it makes stays with the team. Your <b>minion</b> is paid from your wallet, trades with the fund’s capital, and its profit or loss goes to your wallet.</li>
+      <li>Four levels: Intern, Junior, Senior, Wolf. The pricier, the more accurate and the bigger its positions. The Intern often loses.</li>
+      <li>Every bot takes a desk (up to 10 in total). Hired bots do not raise the quota and do not make the podium.</li>
+    </ul>
+    <h3>The Securities Commission</h3>
+    <ul>
+      <li>Always on Hard; on Normal once the balance reaches 3× the starting capital (never on Easy).</li>
+      <li><b>Suspicion</b> rises with insider tips, rumours, scoops and profits far above the quota, and falls a little every day.</li>
+      <li>Some day an <b>investigation</b> may come: those items are banned and at day end you pay a fine on the profit. The “Fund lawyer” halves both suspicion and fines.</li>
+    </ul>`,
 };
 
 /** Το περιεχόμενο των κανόνων (στη σελίδα και στο μενού μέσα στο παιχνίδι). */
@@ -68,7 +119,11 @@ export function rulesHtml(): string {
     <div class="rule-items">${ITEMS.map((i) => `<div class="offer ${i.kind}"><div class="offer-top"><span class="glyph">${i.glyph}</span><span class="tag">${esc(t(i.kind === 'perk' ? 'shop.perk' : 'shop.consumable'))}</span><span class="tag">🪙 ${i.price}</span></div><b>${esc(tr(i.name))}</b><p>${esc(tr(i.desc))}</p></div>`).join('')}</div>
     ${officeRulesHtml()}
     <h3>${el ? 'Οι μετοχές' : 'The stocks'}</h3>
-    <ul class="stock-list">${STOCKS.map((s) => `<li><b style="color:${s.color}">${s.ticker}</b> ${esc(tr(s.name))}</li>`).join('')}</ul>
+    <p>${el ? 'Ξεκινάτε με 5 από τις 8 πρώτες τοπικές. Κάθε 2–3 μέρες και σε κάθε μετακόμιση μπαίνει νέα εταιρεία (ως 12 μαζί): τοπική ως την πολυκατοικία, διεθνής από τη Wall Street και πάνω. Την προηγούμενη μέρα βγαίνει είδηση που «μυρίζει» αν θα έχει πυρετό (πολύ μεγάλες κινήσεις) — δεν πέφτει πάντα μέσα. Κάποιες εταιρείες χρεωκοπούν: πρώτα έρχεται ανησυχητική είδηση και την επόμενη μέρα η μετοχή μπορεί να καταρρεύσει και να βγει από το χρηματιστήριο, ή να ήταν ψεύτικος συναγερμός. Οι νέες μετοχές είναι νευρικές και ηρεμούν με τον καιρό.' : 'You start with 5 of the first 8 local companies. Every 2–3 days and on every move a new company lists (up to 12 at once): local up to the apartment office, international from Wall Street up. The day before, a headline hints whether it will have IPO fever (huge swings) — not always right. Some companies go bankrupt: first a worrying headline, then the next day the stock may collapse and be delisted, or it was a false alarm. New stocks are jumpy and calm down over time.'}</p>
+    <h4>${el ? 'Τοπικές' : 'Local'}</h4>
+    <ul class="stock-list">${STOCKS.filter((s) => s.era === 'local').map((s) => `<li><b style="color:${s.color}">${s.ticker}</b> ${esc(tr(s.name))}</li>`).join('')}</ul>
+    <h4>${el ? 'Διεθνείς' : 'International'}</h4>
+    <ul class="stock-list">${STOCKS.filter((s) => s.era === 'global').map((s) => `<li><b style="color:${s.color}">${s.ticker}</b> ${esc(tr(s.name))}</li>`).join('')}</ul>
     <p class="muted small">${el ? 'Όλες οι εταιρείες και οι ειδήσεις είναι φανταστικές.' : 'All companies and headlines are fictional.'}</p>`;
 }
 
@@ -89,14 +144,14 @@ const CONTROLS = {
   el: `
     <h3>Χειρισμός</h3>
     <ul>
-      <li><b>Υπολογιστής:</b> κλικ στη σκηνή για να κοιτάς με το ποντίκι, <b>WASD</b> ή βελάκια για περπάτημα (Shift για τρέξιμο), <b>E</b> ανοίγει/κλείνει το τερματικό ή το κατάστημα, <b>Esc</b> μενού, <b>Enter</b> chat, <b>T</b> τερματικό με τη σταθερή κάμερα.</li>
+      <li><b>Υπολογιστής:</b> κλικ στη σκηνή για να κοιτάς με το ποντίκι, <b>WASD</b> ή βελάκια για περπάτημα (Shift για τρέξιμο), <b>E</b> ανοίγει/κλείνει το τερματικό ή το κατάστημα, <b>Q</b> ανοίγει/κλείνει το κατάστημα από οπουδήποτε, <b>Esc</b> μενού, <b>Enter</b> chat, <b>T</b> τερματικό με τη σταθερή κάμερα.</li>
       <li><b>Κινητό:</b> joystick αριστερά, σύρσιμο δεξιά για να κοιτάς, κουμπιά κάτω.</li>
       <li>Την κάμερα (πρώτο πρόσωπο, τρίτο πρόσωπο, από ψηλά) και την ανάλυση τις αλλάζεις από το μενού.</li>
     </ul>`,
   en: `
     <h3>Controls</h3>
     <ul>
-      <li><b>Computer:</b> click the scene to look with the mouse, <b>WASD</b> or arrows to walk (Shift to run), <b>E</b> opens/closes the terminal or shop, <b>Esc</b> menu, <b>Enter</b> chat, <b>T</b> terminal with the fixed camera.</li>
+      <li><b>Computer:</b> click the scene to look with the mouse, <b>WASD</b> or arrows to walk (Shift to run), <b>E</b> opens/closes the terminal or shop, <b>Q</b> opens/closes the shop from anywhere, <b>Esc</b> menu, <b>Enter</b> chat, <b>T</b> terminal with the fixed camera.</li>
       <li><b>Phone:</b> joystick on the left, drag on the right to look, buttons at the bottom.</li>
       <li>Change the camera (first person, third person, overhead) and the resolution from the menu.</li>
     </ul>`,
@@ -108,7 +163,7 @@ function officeRulesHtml(): string {
   const progress = loadProgress();
   const card = (o: (typeof OFFICE)[number]) => {
     const locked = !!o.unlock && !progress.unlocked.includes(o.id);
-    return `<div class="ocard ${locked ? 'locked' : ''}"><span class="glyph">${o.glyph}</span><span class="oname"><b>${esc(tr(o.name))}</b><small>${esc(tr(o.desc))}</small></span><span class="lock">${o.unlock ? `${locked ? '🔒' : '🔓'} ${esc(unlockText(o.unlock))}` : ''} · 🪙 ${o.price}</span></div>`;
+    return `<div class="ocard ${locked ? 'locked' : ''}"><span class="glyph">${o.glyph}</span><span class="oname"><b>${esc(tr(o.name))}</b><small>${esc(tr(o.desc))}</small></span><span class="lock">${o.unlock ? `${locked ? '🔒' : '🔓'} ${esc(unlockText(o.unlock))}` : ''} · ${o.kind === 'decor' ? money(o.price * DECOR_USD) : `🪙 ${o.price}`}</span></div>`;
   };
   return `
     <h3>${el ? 'Το γραφείο' : 'The office'}</h3>

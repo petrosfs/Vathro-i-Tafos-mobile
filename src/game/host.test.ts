@@ -10,6 +10,7 @@ function setup(n = 2) {
   const online = new Set(Array.from({ length: n }, (_, i) => `u${i}`));
   const published: GameState[] = [];
   const s = createGame(42, { ...DEFAULT_CONFIG, dayLen: 40 }, [...online].map((uid) => ({ uid, name: uid, look })));
+  s.listed = [0, 1, 2, 3, 4, 5, 6, 7];
   const host = new HostRunner(s, {
     now: () => now,
     isConnected: (u) => online.has(u),

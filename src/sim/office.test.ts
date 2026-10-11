@@ -11,7 +11,8 @@ const game = (n = 2, unlocked: string[] = []) =>
 describe('γραφείο', () => {
   it('διακοσμητικά: ως 4, όχι διπλά, και τα κλειδωμένα μόνο μετά το ξεκλείδωμα', () => {
     const s = game();
-    s.coins = 50;
+    s.players.u0.wallet = 500;
+    s.players.u1.wallet = 500;
     for (const id of ['lamp', 'duck', 'frame', 'cactus'] as const) expect(applyAction(s, 'u0', { t: 'decor', id }, () => 1)).toBeNull();
     expect(applyAction(s, 'u1', { t: 'decor', id: 'lamp' }, () => 1)).toBeNull();
     expect(applyAction(s, 'u1', { t: 'decor', id: 'lamp' }, () => 1)).toBe('owned');

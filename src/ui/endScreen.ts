@@ -18,8 +18,8 @@ export function endScreen(s: GameState, myUid: string, acts: EndActions): HTMLEl
   const best = s.history.reduce((a, r) => (r.profit > a ? r.profit : a), -Infinity);
   const color = (u: string) => PLAYER_COLORS[Math.max(0, s.order.indexOf(u)) % PLAYER_COLORS.length];
   const awards: string[] = [];
-  if (s.order.length > 1) {
-    const by = (f: (u: string) => number) => [...s.order].filter((u) => s.players[u]).sort((a, b) => f(b) - f(a))[0];
+  if (rank.length > 1) {
+    const by = (f: (u: string) => number) => [...rank].sort((a, b) => f(b) - f(a))[0];
     const P = (u: string) => s.players[u].stats;
     const add = (key: Parameters<typeof t>[0], uid: string | undefined, ok: boolean) => {
       if (uid && ok) awards.push(`<div class="award"><small>${esc(t(key))}</small><b style="color:${color(uid)}">${esc(s.players[uid].name)}</b></div>`);
@@ -42,6 +42,7 @@ export function endScreen(s: GameState, myUid: string, acts: EndActions): HTMLEl
       <td>${p.stats.trades}</td>
       <td>${signed(p.stats.best)}</td>
       <td>${p.stats.items}</td>
+      <td class="wallet">${money(p.wallet ?? 0)}</td>
     </tr>`;
   }).join('');
   const el = h(`
@@ -56,7 +57,7 @@ export function endScreen(s: GameState, myUid: string, acts: EndActions): HTMLEl
         </div>
         ${awards.length ? `<div class="awards">${awards.join('')}</div>` : ''}
         <div class="table-wrap"><table>
-          <thead><tr><th>#</th><th>${esc(t('end.player'))}</th><th>${esc(t('end.pnl'))}</th><th>${esc(t('end.trades'))}</th><th>${esc(t('end.bestTrade'))}</th><th>${esc(t('end.items'))}</th></tr></thead>
+          <thead><tr><th>#</th><th>${esc(t('end.player'))}</th><th>${esc(t('end.pnl'))}</th><th>${esc(t('end.trades'))}</th><th>${esc(t('end.bestTrade'))}</th><th>${esc(t('end.items'))}</th><th>${esc(t('hud.wallet'))}</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>
         <h3>${esc(t('end.chart'))}</h3>

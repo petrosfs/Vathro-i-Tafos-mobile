@@ -13,7 +13,10 @@ const look: Look = { suit: 0, skin: 0, hair: 0, hairColor: 0, hat: 0, tie: 0, gl
 
 function game(n = 1, config = DEFAULT_CONFIG): GameState {
   const ps = Array.from({ length: n }, (_, i) => ({ uid: `u${i}`, name: `P${i}`, look }));
-  return createGame(1234, config, ps);
+  const s = createGame(1234, config, ps);
+  // οι παλιοί έλεγχοι γράφτηκαν με όλες τις 8 αρχικές μετοχές στο χρηματιστήριο
+  s.listed = [0, 1, 2, 3, 4, 5, 6, 7];
+  return s;
 }
 
 const params = { seed: 7, day: 1, opens: firstOpens(), baseLen: 600, len: 600, effects: [], difficulty: 'normal' as const };

@@ -5,6 +5,7 @@ import type { Pose } from '../net/transport';
 import { Avatar, mat, PLAYER_COLORS } from './avatar';
 import { animateAquarium, DECOR_SPOTS, makeAquarium, makeDecor, makeKourabiedes, makeProEspresso, makeSofa } from './props';
 import { Tiger } from './tiger';
+import { buildVenue, type VenueBuild } from './venue';
 import type { DecorId, UpgradeId } from '../sim/office';
 import { FirstPerson, collide } from './controls';
 import { buildOffice, ROOM, type Interactable, type Office } from './office';
@@ -34,7 +35,7 @@ export interface WorldPlayer {
 export class World {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
-  readonly camera = new THREE.PerspectiveCamera(60, 1, 0.05, 80);
+  readonly camera = new THREE.PerspectiveCamera(60, 1, 0.05, 320);
   readonly office: Office;
   private avatars = new Map<string, Avatar>();
   private players = new Map<string, WorldPlayer>();
@@ -59,6 +60,9 @@ export class World {
   private upgradesKey = '';
   private upgrades = new Map<UpgradeId, THREE.Group>();
   private baseColliders: number;
+  private coreColliders: number;
+  private venue: VenueBuild | null = null;
+  private venueLevel = -1;
   private aquarium: THREE.Group | null = null;
   private tiger: Tiger | null = null;
   private petSeed = 1;
@@ -82,11 +86,11 @@ export class World {
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.domElement.className = 'scene';
     container.append(this.renderer.domElement);
-    this.scene.background = new THREE.Color('#141A26');
-    this.scene.fog = new THREE.Fog('#141A26', 22, 45);
     this.office = buildOffice(opts.shopTitle, opts.shopSub, high);
-    this.baseColliders = this.office.colliders.length;
+    this.coreColliders = this.office.colliders.length;
+    this.baseColliders = this.coreColliders;
     this.scene.add(this.office.group);
+    this.setVenue(0);
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(container);
     this.resize();
@@ -115,6 +119,12 @@ export class World {
       this.fp = null;
     }
     this.avatars.get(this.myUid)?.setVisible(v !== 'first' || !!this.ending);
+    this.syncCeiling();
+  }
+
+  /** Από ψηλά (σταθερή κάμερα) δεν φαίνεται ό,τι κρέμεται από το ταβάνι. */
+  private syncCeiling() {
+    if (this.venue) this.venue.ceiling.visible = this.view !== 'overview' || !!this.ending;
   }
 
   private mySeat() {
@@ -249,6 +259,41 @@ export class World {
   }
 
   /** Αναβαθμίσεις της ομάδας: εμφανίζονται στο γραφείο. */
+  /** Ο χώρος του fund (γκαράζ, πολυκατοικία, Wall Street, ρετιρέ): ξαναχτίζεται μόνο όταν αλλάζει. */
+  setVenue(level: number) {
+    if (level === this.venueLevel) return;
+    this.venueLevel = level;
+    if (this.venue) {
+      this.scene.remove(this.venue.group);
+      this.venue.dispose();
+    }
+    const v = buildVenue(level, this.opts.quality === 'high');
+    this.venue = v;
+    this.scene.add(v.group);
+    this.syncCeiling();
+    this.office.colliders.length = this.coreColliders;
+    this.office.colliders.push(...v.colliders);
+    this.baseColliders = this.office.colliders.length;
+    this.office.lights.panels = v.panels;
+    const { hemi, sun } = this.office.lights;
+    hemi.color.set(v.light.sky);
+    hemi.groundColor.set(v.light.ground);
+    hemi.intensity = v.light.hemi;
+    sun.color.set(v.light.sun);
+    sun.intensity = v.light.sunI;
+    sun.position.set(...v.light.sunPos);
+    this.office.deskMats.top.color.set(v.desk.top);
+    this.office.deskMats.leg.color.set(v.desk.leg);
+    this.office.deskMats.chair.color.set(v.desk.chair);
+    this.office.boardFrame.color.set(v.boardFrame);
+    this.scene.background = new THREE.Color(v.fog.color);
+    this.scene.fog = new THREE.Fog(v.fog.color, v.fog.near, v.fog.far);
+    // οι αναβαθμίσεις ξαναβάζουν τα δικά τους εμπόδια
+    const ids = [...this.upgrades.keys()];
+    this.upgradesKey = '';
+    this.setUpgrades(ids, this.petSeed);
+  }
+
   setUpgrades(ids: UpgradeId[], seed = 1) {
     this.petSeed = seed;
     this.speedBoost = ids.includes('kourabie') ? 1.3 : 1;
@@ -518,6 +563,7 @@ export class World {
       }
       g.add(conf);
       this.ending = { kind, group: g, confetti: conf, vel };
+      this.syncCeiling();
     } else {
       this.office.lights.hemi.intensity = 0.45;
       this.office.lights.hemi.color.set('#FF8A8A');
@@ -556,6 +602,7 @@ export class World {
         }
       });
       this.ending = { kind, group: g };
+      this.syncCeiling();
     }
   }
 

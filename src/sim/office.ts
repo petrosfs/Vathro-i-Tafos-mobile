@@ -1,10 +1,11 @@
 // Το γραφείο: διακοσμητικά για το γραφείο του κάθε παίκτη και αναβαθμίσεις για όλη την ομάδα.
-// Αγοράζονται με τα νομίσματα της παρτίδας και ισχύουν μέχρι το τέλος της. Κάποια ξεκλειδώνουν
-// μόνιμα (στη συσκευή) όταν πετύχετε κάτι, και από τότε εμφανίζονται στο κατάστημα κάθε παρτίδας.
+// Τα διακοσμητικά τα πληρώνει ο καθένας από το πορτοφόλι του, τις αναβαθμίσεις η ομάδα με νομίσματα.
+// Ισχύουν μέχρι το τέλος της παρτίδας. Κάποια ξεκλειδώνουν μόνιμα (στη συσκευή) όταν πετύχετε κάτι,
+// και από τότε εμφανίζονται στο κατάστημα κάθε παρτίδας.
 import type { Tr } from './stocks';
 
 export type DecorId = 'lamp' | 'cactus' | 'bonsai' | 'trophy' | 'lava' | 'frame' | 'globe' | 'bull' | 'goldfish' | 'duck';
-export type UpgradeId = 'espresso' | 'screens' | 'goldbell' | 'aquarium' | 'sofa' | 'neon' | 'kourabie' | 'tiger';
+export type UpgradeId = 'espresso' | 'screens' | 'goldbell' | 'aquarium' | 'sofa' | 'neon' | 'kourabie' | 'tiger' | 'bonuspool' | 'lawyer';
 export type OfficeId = DecorId | UpgradeId;
 
 /** Πότε ξεκλειδώνει κάτι: φτάνοντας σε μέρα, ανεβαίνοντας στο βάθρο, ή με κέρδος σε μία παρτίδα. */
@@ -43,6 +44,11 @@ export const OFFICE: OfficeDef[] = [
     name: { el: 'Κύπελλο', en: 'Trophy' }, desc: { el: 'Μόνο για όσους ανέβηκαν στο βάθρο.', en: 'Only for those who made the podium.' } },
   { id: 'espresso', kind: 'upgrade', price: 5, glyph: '☕', unlock: null,
     name: { el: 'Επαγγελματική καφετιέρα', en: 'Pro espresso machine' }, desc: { el: 'Κάθε μέρα κρατάει 30 δευτερόλεπτα περισσότερο.', en: 'Every day lasts 30 seconds longer.' } },
+  { id: 'bonuspool', kind: 'upgrade', price: 6, glyph: '💰', unlock: null,
+    name: { el: 'Bonus pool', en: 'Bonus pool' }, desc: { el: '+1% στο bonus όλων.', en: '+1% on everyone’s bonus.' } },
+  { id: 'lawyer', kind: 'upgrade', price: 5, glyph: '⚖', unlock: null,
+    name: { el: 'Δικηγόρος του fund', en: 'Fund lawyer' },
+    desc: { el: 'Μισές υποψίες και μισό πρόστιμο από την Επιτροπή Κεφαλαιαγοράς.', en: 'Half the suspicion and half the fine from the Securities Commission.' } },
   { id: 'sofa', kind: 'upgrade', price: 2, glyph: '🛋', unlock: null,
     name: { el: 'Καναπές', en: 'Sofa' }, desc: { el: 'Για τα διαλείμματα. Καθαρά διακοσμητικό.', en: 'For breaks. Purely decorative.' } },
   { id: 'screens', kind: 'upgrade', price: 5, glyph: '🖥', unlock: { kind: 'day', n: 4 },

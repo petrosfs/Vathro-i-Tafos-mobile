@@ -1,7 +1,8 @@
-// Το γραφείο του fund: τοίχοι, γραφεία με οθόνες, ο μεγάλος πίνακας, το μηχάνημα του καταστήματος.
+// Το γραφείο του fund: γραφεία με οθόνες, ο μεγάλος πίνακας, το μηχάνημα του καταστήματος, τα φώτα.
+// Πάτωμα, τοίχοι, παράθυρα και ό,τι φαίνεται έξω εξαρτώνται από τον χώρο (venue.ts).
 import * as THREE from 'three';
 import { mat } from './avatar';
-import { canvasTexture, drawCarpet, drawSign, drawSkyline } from './textures';
+import { canvasTexture, drawSign } from './textures';
 import { makeCoffeeCorner, makeMug } from './props';
 
 const MUG_COLORS = ['#F2F2F2', '#E24B4B', '#2B5DB2', '#F5C542', '#2E8B57', '#1E1E1E'];
@@ -44,6 +45,9 @@ export interface Office {
   bell: THREE.Group;
   /** Ομάδα ανά γραφείο για τα διακοσμητικά του παίκτη. */
   deskDecor: THREE.Group[];
+  /** Υλικά των γραφείων και του πλαισίου του πίνακα (αλλάζουν με τον χώρο). */
+  deskMats: { top: THREE.MeshLambertMaterial; leg: THREE.MeshLambertMaterial; chair: THREE.MeshLambertMaterial };
+  boardFrame: THREE.MeshLambertMaterial;
 }
 
 // 10 γραφεία σε 3 σειρές (4 + 3 + 3), με διαδρόμους ανάμεσα για όσους περπατούν.
@@ -63,77 +67,15 @@ function box(color: string, sx: number, sy: number, sz: number, x: number, y: nu
 
 export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean): Office {
   const g = new THREE.Group();
-  const W = ROOM.maxX - ROOM.minX;
-  const D = ROOM.maxZ - ROOM.minZ;
-  // πάτωμα με χαλί
-  const carpet = canvasTexture(256, 256);
-  drawCarpet(carpet.ctx);
-  carpet.tex.wrapS = carpet.tex.wrapT = THREE.RepeatWrapping;
-  carpet.tex.repeat.set(W / 4, D / 4);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshLambertMaterial({ map: carpet.tex }));
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
-  g.add(floor);
-  // ταβάνι με φωτιστικά
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshBasicMaterial({ color: '#2B3242' }));
-  ceil.rotation.x = Math.PI / 2;
-  ceil.position.y = ROOM.height;
-  g.add(ceil);
-  const panels: THREE.Mesh[] = [];
-  for (const x of [-7, 0, 7]) {
-    for (const z of [-4, 2]) {
-      const p = new THREE.Mesh(new THREE.PlaneGeometry(3, 1), new THREE.MeshBasicMaterial({ color: '#FFF4DA' }));
-      p.rotation.x = Math.PI / 2;
-      p.position.set(x, ROOM.height - 0.01, z);
-      g.add(p);
-      panels.push(p);
-    }
-  }
-  // τοίχοι
-  const wallMat = mat('#3B4458');
-  const wallN = new THREE.Mesh(new THREE.PlaneGeometry(W, ROOM.height), wallMat);
-  wallN.position.set(0, ROOM.height / 2, ROOM.minZ);
-  const wallS = wallN.clone();
-  wallS.rotation.y = Math.PI;
-  wallS.position.z = ROOM.maxZ;
-  const wallW = new THREE.Mesh(new THREE.PlaneGeometry(D, ROOM.height), wallMat);
-  wallW.rotation.y = Math.PI / 2;
-  wallW.position.set(ROOM.minX, ROOM.height / 2, 0);
-  const wallE = wallW.clone();
-  wallE.rotation.y = -Math.PI / 2;
-  wallE.position.x = ROOM.maxX;
-  for (const w of [wallN, wallS, wallW, wallE]) {
-    w.receiveShadow = true;
-    g.add(w);
-  }
-  // σοβατεπί
-  g.add(box('#232836', W, 0.14, 0.04, 0, 0.07, ROOM.minZ + 0.02, false));
-  g.add(box('#232836', W, 0.14, 0.04, 0, 0.07, ROOM.maxZ - 0.02, false));
-  // παράθυρα με θέα στους ουρανοξύστες (νότιος και δυτικός τοίχος)
-  const sky = canvasTexture(1024, 256);
-  drawSkyline(sky.ctx, 7);
-  const skyMat = new THREE.MeshBasicMaterial({ map: sky.tex });
-  for (const x of [-7.5, 0, 7.5]) {
-    const win = new THREE.Mesh(new THREE.PlaneGeometry(6, 2.4), skyMat);
-    win.rotation.y = Math.PI;
-    win.position.set(x, 2.2, ROOM.maxZ - 0.02);
-    g.add(win);
-    g.add(box('#1A1E28', 6.1, 0.08, 0.06, x, 3.42, ROOM.maxZ - 0.04, false));
-    g.add(box('#1A1E28', 6.1, 0.08, 0.06, x, 0.98, ROOM.maxZ - 0.04, false));
-    for (const dx of [-1.5, 0, 1.5]) g.add(box('#1A1E28', 0.06, 2.4, 0.06, x + dx, 2.2, ROOM.maxZ - 0.04, false));
-  }
-  const sky2 = canvasTexture(1024, 256);
-  drawSkyline(sky2.ctx, 31);
-  const win2 = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.4), new THREE.MeshBasicMaterial({ map: sky2.tex }));
-  win2.rotation.y = Math.PI / 2;
-  win2.position.set(ROOM.minX + 0.02, 2.2, 2);
-  g.add(win2);
   // μεγάλος πίνακας
   const board = canvasTexture(1024, 512);
   const boardMesh = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), new THREE.MeshBasicMaterial({ map: board.tex }));
   boardMesh.position.set(0, 2.25, ROOM.minZ + 0.08);
   g.add(boardMesh);
-  g.add(box('#10141C', 10.3, 5.3, 0.04, 0, 2.25, ROOM.minZ + 0.03, false));
+  const boardFrame = new THREE.MeshLambertMaterial({ color: '#10141C' });
+  const frameMesh = new THREE.Mesh(new THREE.BoxGeometry(10.3, 5.3, 0.04), boardFrame);
+  frameMesh.position.set(0, 2.25, ROOM.minZ + 0.03);
+  g.add(frameMesh);
   // καμπανάκι
   const bell = new THREE.Group();
   bell.add(box('#5A3A22', 0.8, 1.0, 0.5, 0, 0.5, 0));
@@ -151,10 +93,22 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   const interactables: Interactable[] = [];
   const monitors: Office['monitors'] = [];
   const deskDecor: THREE.Group[] = [];
+  const deskMats = {
+    top: new THREE.MeshLambertMaterial({ color: '#6E4B32' }),
+    leg: new THREE.MeshLambertMaterial({ color: '#3A2A1E' }),
+    chair: new THREE.MeshLambertMaterial({ color: '#20232B' }),
+  };
+  const mbox = (m: THREE.Material, sx: number, sy: number, sz: number, x: number, y: number, z: number) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), m);
+    b.position.set(x, y, z);
+    b.castShadow = true;
+    b.receiveShadow = true;
+    return b;
+  };
   DESKS.forEach(([x, z], i) => {
-    g.add(box('#6E4B32', 1.9, 0.06, 0.9, x, 0.76, z));
-    g.add(box('#3A2A1E', 0.06, 0.74, 0.8, x - 0.9, 0.37, z));
-    g.add(box('#3A2A1E', 0.06, 0.74, 0.8, x + 0.9, 0.37, z));
+    g.add(mbox(deskMats.top, 1.9, 0.06, 0.9, x, 0.76, z));
+    g.add(mbox(deskMats.leg, 0.06, 0.74, 0.8, x - 0.9, 0.37, z));
+    g.add(mbox(deskMats.leg, 0.06, 0.74, 0.8, x + 0.9, 0.37, z));
     // οθόνες: η κύρια με γράφημα και μια δεύτερη διακοσμητική
     const mon = canvasTexture(256, 160);
     const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.45), new THREE.MeshBasicMaterial({ map: mon.tex }));
@@ -181,8 +135,8 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
     deskDecor.push(decor);
     // καρέκλα
     const cz = z + 0.75;
-    g.add(box('#20232B', 0.5, 0.08, 0.5, x, 0.47, cz));
-    g.add(box('#20232B', 0.5, 0.55, 0.07, x, 0.78, cz + 0.25));
+    g.add(mbox(deskMats.chair, 0.5, 0.08, 0.5, x, 0.47, cz));
+    g.add(mbox(deskMats.chair, 0.5, 0.55, 0.07, x, 0.78, cz + 0.25));
     g.add(box('#111', 0.06, 0.45, 0.06, x, 0.22, cz, false));
     seats.push({ x, z: cz, ry: Math.PI });
     colliders.push({ minX: x - 1.0, maxX: x + 1.0, minZ: z - 0.5, maxZ: z + 0.5 });
@@ -210,20 +164,6 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   coffee.position.set(ROOM.minX + 0.33, 0, -5);
   g.add(coffee);
   colliders.push({ minX: ROOM.minX, maxX: ROOM.minX + 0.75, minZ: -5.9, maxZ: -4.1 });
-  // φυτά στις γωνίες
-  for (const [x, z] of [[-11, -7], [11, -7], [-11, 7], [11, 7], [-11, 6.9 - 4]] as [number, number][]) {
-    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 10), mat('#B5654A'));
-    pot.position.set(x, 0.25, z);
-    pot.castShadow = true;
-    g.add(pot);
-    for (let k = 0; k < 3; k++) {
-      const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32 - k * 0.06, 0), mat(k % 2 ? '#3E8E4E' : '#2F7A40'));
-      leaf.position.set(x + (k - 1) * 0.08, 0.75 + k * 0.32, z);
-      leaf.castShadow = true;
-      g.add(leaf);
-    }
-    colliders.push({ minX: x - 0.4, maxX: x + 0.4, minZ: z - 0.4, maxZ: z + 0.4 });
-  }
   // φώτα
   const hemi = new THREE.HemisphereLight('#E6EEFF', '#3A3024', 1.4);
   g.add(hemi);
@@ -245,6 +185,6 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   g.add(sun, sun.target);
   return {
     group: g, board, monitors, seats, colliders, interactables, shopGlow: glow,
-    lights: { hemi, sun, panels }, stage: new THREE.Vector3(0, 0, -5), bell, deskDecor,
+    lights: { hemi, sun, panels: [] }, stage: new THREE.Vector3(0, 0, -5), bell, deskDecor, deskMats, boardFrame,
   };
 }

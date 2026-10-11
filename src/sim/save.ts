@@ -1,7 +1,7 @@
 // Αποθήκευση και συνέχεια παρτίδας: μετατροπή κατάστασης από παλιότερες εκδόσεις και ταίριασμα παικτών
 // όταν μια αποθηκευμένη παρτίδα συνεχίζει σε νέο δωμάτιο.
 import {
-  createGame, DEFAULT_CONFIG, newPlayer, newStats, quotaFor, rollOffers, SCHEMA, type GameState, type Look, type PlayerState,
+  createGame, DEFAULT_CONFIG, MAX_PLAYERS, newPlayer, newStats, quotaFor, rollOffers, SCHEMA, type GameState, type Look, type PlayerState,
 } from './engine';
 
 /**
@@ -18,6 +18,14 @@ export function migrateState(raw: unknown): GameState {
     if (!Array.isArray(s[k])) (s as unknown as Record<string, unknown>)[k] = Array.isArray(base[k]) ? [...(base[k] as unknown[])] : [];
   }
   if (!s.opens.length) s.opens = base.opens;
+  // παλιότερες εκδόσεις: όλες οι 8 μετοχές στο χρηματιστήριο από την αρχή, χωρίς γεγονότα
+  if (!Array.isArray(r.listed)) {
+    s.listed = [0, 1, 2, 3, 4, 5, 6, 7];
+    s.nextIpo = (Number(r.day) || 1) + 2;
+  }
+  for (const k of ['events', 'gone'] as const) if (!Array.isArray(s[k])) s[k] = [];
+  if (!s.born || typeof s.born !== 'object') s.born = {};
+  s.opens = base.opens.map((v, i) => (Number.isFinite(s.opens[i]) ? s.opens[i] : v));
   s.players = { ...(r.players ?? {}) };
   for (const [uid, p] of Object.entries(s.players)) {
     const fresh = newPlayer(p?.name ?? '?', p?.look ?? base.players[uid]?.look ?? defaultLook());
@@ -57,7 +65,7 @@ const norm = (s: string) => s.trim().toLocaleLowerCase();
  */
 export function resumeState(saved: GameState, joiners: Joiner[], unlocked: string[] = []): GameState {
   const s = migrateState(structuredClone(saved));
-  const free = new Set(s.order);
+  const free = new Set(s.order.filter((u) => !s.players[u]?.bot));
   const match = new Map<string, string>();
   for (const j of joiners) if (free.has(j.uid)) {
     match.set(j.uid, j.uid);
@@ -74,7 +82,7 @@ export function resumeState(saved: GameState, joiners: Joiner[], unlocked: strin
   const players: Record<string, PlayerState> = {};
   const order: string[] = [];
   const rename = new Map<string, string>();
-  for (const j of joiners) {
+  for (const j of joiners.slice(0, MAX_PLAYERS)) {
     const old = match.get(j.uid);
     const p = old ? { ...s.players[old] } : newPlayer(j.name, j.look);
     p.name = j.name;
@@ -84,6 +92,16 @@ export function resumeState(saved: GameState, joiners: Joiner[], unlocked: strin
     players[j.uid] = p;
     order.push(j.uid);
     if (old) rename.set(old, j.uid);
+  }
+  // τα bots μένουν (όσα χωράνε)· ο «σκλάβος» μένει μόνο αν ήρθε το αφεντικό του
+  for (const u of s.order) {
+    const b = s.players[u];
+    if (!b?.bot || order.length >= MAX_PLAYERS) continue;
+    const owner = b.bot.owner ? rename.get(b.bot.owner) : undefined;
+    if (b.bot.kind === 'slave' && !owner) continue;
+    players[u] = { ...b, bot: { ...b.bot, last: -1, ...(owner ? { owner } : {}) } };
+    order.push(u);
+    rename.set(u, u);
   }
   s.players = players;
   s.order = order;

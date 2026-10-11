@@ -21,6 +21,8 @@ import { deleteSave, putSave, saveId } from '../game/saves';
 import { loadProgress, recordProgress } from '../game/progress';
 import { OFFICE_DEF } from '../sim/office';
 import { APP_VERSION } from '../version';
+import { Tutorial } from '../ui/tutorial';
+import { VENUE_NAMES } from '../ui/venueText';
 
 export interface GameScreenOpts {
   transport: Transport;
@@ -43,6 +45,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
     const settings = loadSettings();
     const tr0 = opts.transport;
     const g = new GameController(tr0);
+    if (import.meta.env.DEV) (window as unknown as { __g: GameController }).__g = g;
     root.className = 'game-root';
     const el = h(`
       <div class="game">
@@ -54,6 +57,8 @@ export function gameScreen(opts: GameScreenOpts): Screen {
             <div class="hud-cell hud-quota"><small></small><div class="bar"><i></i><em></em></div></div>
             <div class="hud-cell hud-cash"><small>${esc(t('hud.cash'))}</small><b></b></div>
             <div class="hud-cell hud-coins"><small>${esc(t('hud.coins'))}</small><b></b></div>
+            <div class="hud-cell hud-wallet"><small>${esc(t('hud.wallet'))}</small><b></b></div>
+            <div class="hud-cell hud-sec" hidden title="${esc(t('sec.banner'))}"><b>${esc(t('hud.sec'))}</b></div>
           </div>
           <div class="headline" hidden></div>
           <div class="warn-banner" hidden></div>
@@ -79,6 +84,8 @@ export function gameScreen(opts: GameScreenOpts): Screen {
     world.myUid = g.uid;
     world.start();
 
+    const tutorial = new Tutorial(g.uid, { walking: () => world.view !== 'overview' });
+    el.append(tutorial.el);
     let panel: PanelKind | null = null;
     let openedAt = 0;
     const terminal = new Terminal(g, () => closePanel());
@@ -101,6 +108,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       $('.panels').append(p);
       el.classList.add('panel-open', `open-${k}`);
       world.setUiOpen(true, k === 'terminal' ? (desk ?? g.desk(g.uid)) : null);
+      tutorial.onPanel(k);
       if (k === 'terminal') terminal.update(true);
       if (k === 'shop') shop.update(true);
       if (k === 'chat') {
@@ -153,6 +161,12 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       } else if (!typing && e.code === 'KeyE' && (panel === 'terminal' || panel === 'shop') && performance.now() - openedAt > 200) {
         // Το E ανοίγει και κλείνει το τερματικό (και το κατάστημα).
         closePanel();
+        e.preventDefault();
+      } else if (!typing && e.code === 'KeyQ' && !ended && (!panel || panel === 'shop') && performance.now() - openedAt > 200) {
+        // Q: ανοίγει και κλείνει το κατάστημα από οπουδήποτε (μόνο ανάμεσα στις μέρες)
+        if (panel === 'shop') closePanel();
+        else if (g.s?.phase === 'shop') openPanel('shop');
+        else toast(t('hud.closed'));
         e.preventDefault();
       } else if (!typing && !panel && e.key === 'Enter') {
         openPanel('chat');
@@ -218,6 +232,12 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       }
       world.setDecor(s.order.map((u) => s.players[u]?.decor ?? []));
       world.setUpgrades(s.office ?? [], s.seed);
+      world.setVenue(s.venue ?? 0);
+      if (prev && (prev.venue ?? 0) !== (s.venue ?? 0)) {
+        toast(t('venue.moved', { name: tr(VENUE_NAMES[s.venue ?? 0]) }), 'good', 5000);
+        world.celebrate(3000);
+        sfx.win();
+      }
       // μόνιμα ξεκλειδώματα της συσκευής μου: να είναι διαθέσιμα και σε αυτή την παρτίδα
       if (!unlocksSent) {
         unlocksSent = true;
@@ -266,6 +286,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       if (prev && prev.phase !== s.phase) {
         if (s.phase === 'trading') {
           if (panel === 'shop') closePanel(false);
+          if (s.sec) toast(t('sec.banner'), 'error', 8000);
           bellRung = false;
           alarmed = false;
           shownNews.clear();
@@ -293,6 +314,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       }
       if (!prev && s.phase === 'shop') openPanel('shop');
       world.setShopOpen(s.phase === 'shop');
+      tutorial.onState(s, prev);
       if (panel === 'shop') shop.update();
       if (panel === 'terminal') terminal.update(true);
       refreshHud();
@@ -346,6 +368,8 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       $('.hud-quota em').className = profit >= 0 ? 'up' : 'down';
       $('.hud-cash b').textContent = money(g.equity());
       $('.hud-coins b').textContent = `🪙 ${s.coins}`;
+      $('.hud-wallet b').textContent = money(s.players[g.uid]?.wallet ?? 0);
+      $('.hud-sec').hidden = !(trading && s.sec);
       // κουμπιά
       const fpMode = world.view !== 'overview';
       const near = world.nearInteractable();
@@ -423,7 +447,8 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         title: `${t('title').toUpperCase()} · ${s.config.podiumDays ? t('hud.dayOf', { d: s.day, n: s.config.podiumDays }) : t('hud.day', { d: s.day })}`,
         clock: trading ? (tickF < 0 ? `-${Math.ceil(-tickF / 2)}` : clock(s.len - tickF)) : '--:--',
         urgent: trading && s.len - tickF <= 20,
-        rows: STOCKS.map((st, i) => {
+        rows: s.listed.map((i) => {
+          const st = STOCKS[i];
           const p = series[i][tick];
           const ch = p / series[i][0] - 1;
           const spark: number[] = [];
@@ -460,7 +485,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           }
           continue;
         }
-        const k = uid === g.uid ? terminal.selected : (i * 3 + Math.floor(now / 8000)) % STOCKS.length;
+        const k = uid === g.uid ? terminal.selected : s.listed[(i * 3 + Math.floor(now / 8000)) % s.listed.length];
         const st = STOCKS[k];
         const step = Math.max(1, Math.floor(tick / 40));
         const pts: number[] = [];
@@ -534,6 +559,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
             </div>
             <button class="btn primary wide" data-resume>${esc(t('menu.resume'))}</button>
             <button class="btn ghost wide" data-rules>📖 ${esc(t('home.rules'))}</button>
+            <button class="btn ghost wide" data-tutorial>🧭 ${esc(t('menu.tutorial'))}</button>
             <button class="btn danger wide" data-leave>${esc(t('menu.leave'))}</button>
             <p class="version muted small center">${esc(t('menu.version', { v: APP_VERSION }))}</p>
           </div>
@@ -555,6 +581,10 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         sync();
       });
       m.querySelector('[data-rules]')!.addEventListener('click', () => openPanel('rules'));
+      m.querySelector('[data-tutorial]')!.addEventListener('click', () => {
+        closePanel();
+        tutorial.restart(g.s);
+      });
       m.querySelector('[data-k="resolution"]')!.addEventListener('click', (e) => {
         const v = (e.target as HTMLElement).closest<HTMLElement>('[data-v]')?.dataset.v as Resolution | undefined;
         if (!v) return;

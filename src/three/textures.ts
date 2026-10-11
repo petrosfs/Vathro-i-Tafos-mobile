@@ -68,33 +68,35 @@ export function drawBoard(ctx: CanvasRenderingContext2D, d: BoardData) {
   ctx.fillStyle = d.urgent ? DOWN : '#E8EEF8';
   ctx.font = `700 38px ${MONO}`;
   ctx.fillText(d.clock, W - 24, 34);
-  // σειρές μετοχών σε 2 στήλες
+  // σειρές μετοχών σε 2 στήλες (3 όταν είναι πάνω από 8)
   const top = 76;
+  const cols = d.rows.length > 8 ? 3 : 2;
+  const k = cols === 3 ? 0.74 : 1;
   const rowH = (H - top - 120) / 4;
   d.rows.forEach((r, i) => {
-    const col = i < 4 ? 0 : 1;
+    const col = Math.floor(i / 4);
     const row = i % 4;
-    const x = 20 + col * (W / 2);
+    const x = 20 + col * (W / cols);
     const y = top + row * rowH;
-    const w = W / 2 - 40;
+    const w = W / cols - 40;
     ctx.fillStyle = row % 2 ? '#0A101C' : '#0C1322';
     ctx.fillRect(x - 8, y, w + 16, rowH - 6);
     ctx.fillStyle = r.color;
     ctx.fillRect(x - 8, y, 6, rowH - 6);
     ctx.textAlign = 'left';
-    ctx.font = `800 30px ${MONO}`;
+    ctx.font = `800 ${Math.round(30 * k)}px ${MONO}`;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText(r.ticker, x + 8, y + rowH / 2 - 3);
     ctx.textAlign = 'right';
-    ctx.font = `700 30px ${MONO}`;
-    ctx.fillText(r.price, x + w * 0.62, y + rowH / 2 - 3);
+    ctx.font = `700 ${Math.round(30 * k)}px ${MONO}`;
+    ctx.fillText(r.price, x + w * 0.66, y + rowH / 2 - 3);
     ctx.fillStyle = r.change >= 0 ? UP : DOWN;
-    ctx.font = `700 26px ${MONO}`;
+    ctx.font = `700 ${Math.round(26 * k)}px ${MONO}`;
     ctx.fillText(r.changeText, x + w, y + rowH / 2 - 3);
     // μικρό γράφημα
     if (r.spark.length > 1) {
-      const sx = x + w * 0.2;
-      const sw = w * 0.2;
+      const sx = x + w * (cols === 3 ? 0.27 : 0.2);
+      const sw = w * (cols === 3 ? 0.14 : 0.2);
       const lo = Math.min(...r.spark);
       const hi = Math.max(...r.spark);
       const span = hi - lo || 1;
