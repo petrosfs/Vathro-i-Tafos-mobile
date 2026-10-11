@@ -2,6 +2,7 @@ import { esc } from '../app';
 import { money, signed, t, tr } from '../i18n';
 import type { LogEntry } from '../sim/engine';
 import { ITEM } from '../sim/items';
+import { OFFICE_DEF } from '../sim/office';
 import { STOCKS } from '../sim/stocks';
 import type { GameController } from '../game/controller';
 
@@ -10,7 +11,7 @@ export function logLine(g: GameController, l: LogEntry): string {
   const who = l.who === g.uid ? `<b class="me">${esc(t('you'))}</b>` : `<b>${esc(g.name(l.who))}</b>`;
   const stock = l.stock !== undefined && l.stock >= 0 ? `<b>${STOCKS[l.stock].ticker}</b>` : '';
   const pnl = l.pnl !== undefined ? `<span class="${l.pnl >= 0 ? 'up' : 'down'}">${signed(l.pnl)}</span>` : '';
-  const item = l.item ? esc(tr(ITEM[l.item].name)) : '';
+  const item = l.item ? esc(tr(ITEM[l.item].name)) : l.office ? esc(tr(OFFICE_DEF[l.office].name)) : '';
   const amt = l.amount !== undefined ? money(l.amount) : '';
   const v = { who, stock, pnl, item, amt };
   switch (l.kind) {
@@ -20,6 +21,6 @@ export function logLine(g: GameController, l: LogEntry): string {
     case 'stop': return t('log.stop', v);
     case 'eod': return t('log.eod', v);
     case 'item': return stock ? t('log.itemOn', v) : t('log.item', v);
-    case 'buy': return t('log.buy', v);
+    case 'buy': return l.office ? t('log.buyOffice', v) : t('log.buy', v);
   }
 }

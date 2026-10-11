@@ -2,6 +2,9 @@
 import * as THREE from 'three';
 import { mat } from './avatar';
 import { canvasTexture, drawCarpet, drawSign, drawSkyline } from './textures';
+import { makeCoffeeCorner, makeMug } from './props';
+
+const MUG_COLORS = ['#F2F2F2', '#E24B4B', '#2B5DB2', '#F5C542', '#2E8B57', '#1E1E1E'];
 
 export const ROOM = { minX: -12, maxX: 12, minZ: -8, maxZ: 8, height: 4.2 };
 
@@ -39,6 +42,8 @@ export interface Office {
   /** Χώρος για το βάθρο ή τους τάφους στο τέλος. */
   stage: THREE.Vector3;
   bell: THREE.Group;
+  /** Ομάδα ανά γραφείο για τα διακοσμητικά του παίκτη. */
+  deskDecor: THREE.Group[];
 }
 
 // 10 γραφεία σε 3 σειρές (4 + 3 + 3), με διαδρόμους ανάμεσα για όσους περπατούν.
@@ -145,6 +150,7 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   const colliders: Box2[] = [];
   const interactables: Interactable[] = [];
   const monitors: Office['monitors'] = [];
+  const deskDecor: THREE.Group[] = [];
   DESKS.forEach(([x, z], i) => {
     g.add(box('#6E4B32', 1.9, 0.06, 0.9, x, 0.76, z));
     g.add(box('#3A2A1E', 0.06, 0.74, 0.8, x - 0.9, 0.37, z));
@@ -165,7 +171,14 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
     g.add(s2);
     monitors.push(mon);
     g.add(box('#2A2A2A', 0.5, 0.02, 0.16, x - 0.2, 0.8, z + 0.12));
-    g.add(box('#ECECEC', 0.1, 0.12, 0.08, x + 0.7, 0.85, z + 0.1));
+    const mug = makeMug(MUG_COLORS[i % MUG_COLORS.length]);
+    mug.position.set(x + 0.68, 0.79, z + 0.12);
+    mug.rotation.y = 0.6 + i;
+    g.add(mug);
+    const decor = new THREE.Group();
+    decor.position.set(x, 0.79, z);
+    g.add(decor);
+    deskDecor.push(decor);
     // καρέκλα
     const cz = z + 0.75;
     g.add(box('#20232B', 0.5, 0.08, 0.5, x, 0.47, cz));
@@ -192,11 +205,11 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   g.add(shop);
   colliders.push({ minX: ROOM.maxX - 1.1, maxX: ROOM.maxX, minZ: -0.7, maxZ: 0.7 });
   interactables.push({ kind: 'shop', index: 0, x: ROOM.maxX - 1.8, z: 0, r: 1.6 });
-  // καφετιέρα και ψυγείο νερού (δυτικός τοίχος)
-  g.add(box('#2E3340', 1.2, 0.9, 0.6, ROOM.minX + 0.4, 0.45, -5));
-  g.add(box('#B8BEC8', 0.4, 0.45, 0.35, ROOM.minX + 0.45, 1.12, -5.2));
-  g.add(box('#C43A3A', 0.25, 0.15, 0.25, ROOM.minX + 0.45, 0.98, -4.75));
-  colliders.push({ minX: ROOM.minX, maxX: ROOM.minX + 1.0, minZ: -5.4, maxZ: -4.6 });
+  // γωνιά καφέ (δυτικός τοίχος)
+  const coffee = makeCoffeeCorner();
+  coffee.position.set(ROOM.minX + 0.33, 0, -5);
+  g.add(coffee);
+  colliders.push({ minX: ROOM.minX, maxX: ROOM.minX + 0.75, minZ: -5.9, maxZ: -4.1 });
   // φυτά στις γωνίες
   for (const [x, z] of [[-11, -7], [11, -7], [-11, 7], [11, 7], [-11, 6.9 - 4]] as [number, number][]) {
     const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 10), mat('#B5654A'));
@@ -232,6 +245,6 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   g.add(sun, sun.target);
   return {
     group: g, board, monitors, seats, colliders, interactables, shopGlow: glow,
-    lights: { hemi, sun, panels }, stage: new THREE.Vector3(0, 0, -5), bell,
+    lights: { hemi, sun, panels }, stage: new THREE.Vector3(0, 0, -5), bell, deskDecor,
   };
 }

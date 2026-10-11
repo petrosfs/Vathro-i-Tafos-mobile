@@ -35,3 +35,21 @@ export function toast(text: string, kind: 'info' | 'error' | 'good' = 'info', ms
   setTimeout(() => el.classList.add('out'), ms);
   setTimeout(() => el.remove(), ms + 400);
 }
+
+/**
+ * Αν έχει βγει νέα έκδοση (το version.json του site διαφέρει από αυτήν που τρέχει), δείχνει
+ * διακριτικό μήνυμα με κουμπί ανανέωσης. Δεν κάνει τίποτα στην ανάπτυξη ή χωρίς δίκτυο.
+ */
+export function checkForUpdate(container: HTMLElement) {
+  if (import.meta.env.DEV) return;
+  fetch(`${import.meta.env.BASE_URL}version.json?t=${Date.now()}`, { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j: { v?: string } | null) => {
+      if (!j?.v || j.v === __APP_VERSION__ || !container.isConnected) return;
+      const lang = document.documentElement.lang === 'en';
+      const bar = h(`<div class="update-bar">${esc(lang ? `New version ${j.v} available.` : `Νέα έκδοση ${j.v} διαθέσιμη.`)} <button class="btn small primary">${lang ? 'Update' : 'Ενημέρωση'}</button></div>`);
+      bar.querySelector('button')!.addEventListener('click', () => location.reload());
+      container.prepend(bar);
+    })
+    .catch(() => {});
+}

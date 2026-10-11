@@ -3,19 +3,24 @@ import * as THREE from 'three';
 import type { Look } from '../sim/engine';
 import type { Pose } from '../net/transport';
 import { Avatar, mat, PLAYER_COLORS } from './avatar';
+import { animateAquarium, DECOR_SPOTS, makeAquarium, makeDecor, makeProEspresso, makeSofa } from './props';
+import type { DecorId, UpgradeId } from '../sim/office';
 import { FirstPerson, collide } from './controls';
 import { buildOffice, ROOM, type Interactable, type Office } from './office';
-import { canvasTexture, drawBoard, drawMonitor, drawTombstone, type BoardData } from './textures';
+import { canvasTexture, drawBoard, drawMonitor, drawNeon, drawNewsScreen, drawTombstone, setTextureScale, type BoardData } from './textures';
+import { pixelRatioFor, type Resolution } from '../settings';
 
 export type ViewMode = 'first' | 'third' | 'overview';
 
 export interface WorldOptions {
   view: ViewMode;
   quality: 'low' | 'high';
+  resolution: Resolution;
   reduceMotion: boolean;
   sensitivity: () => number;
   shopTitle: string;
   shopSub: string;
+  neonText: string;
 }
 
 export interface WorldPlayer {
@@ -33,6 +38,9 @@ export class World {
   private avatars = new Map<string, Avatar>();
   private players = new Map<string, WorldPlayer>();
   private poses = new Map<string, Pose>();
+  private poseAt = new Map<string, { t: number; vx: number; vz: number }>();
+  private camPos = new THREE.Vector3();
+  private camInit = false;
   private fp: FirstPerson | null = null;
   private raf = 0;
   private last = performance.now();
@@ -46,6 +54,13 @@ export class World {
   private sitAt: number | null = null;
   private celebrateUntil = 0;
   private tagK = 1;
+  private decorKey = '';
+  private upgradesKey = '';
+  private upgrades = new Map<UpgradeId, THREE.Group>();
+  private baseColliders: number;
+  private aquarium: THREE.Group | null = null;
+  private newsScreens: { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D }[] = [];
+  private lastHeadline = '';
   onFrame: (dt: number) => void = () => {};
   onInteract: () => void = () => {};
   /** Ο παίκτης έφυγε από το «κλείδωμα» του ποντικιού με Esc. */
@@ -55,7 +70,9 @@ export class World {
     this.view = opts.view;
     const high = opts.quality === 'high';
     this.renderer = new THREE.WebGLRenderer({ antialias: high, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, high ? 2 : 1.25));
+    const ratio = pixelRatioFor(opts.resolution);
+    this.renderer.setPixelRatio(ratio);
+    setTextureScale(ratio >= 1.5 ? 2 : 1);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = high;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -64,11 +81,18 @@ export class World {
     this.scene.background = new THREE.Color('#141A26');
     this.scene.fog = new THREE.Fog('#141A26', 22, 45);
     this.office = buildOffice(opts.shopTitle, opts.shopSub, high);
+    this.baseColliders = this.office.colliders.length;
     this.scene.add(this.office.group);
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(container);
     this.resize();
     this.setView(opts.view);
+  }
+
+  /** Αλλαγή ανάλυσης την ώρα του παιχνιδιού (χωρίς να ξαναφτιαχτεί η σκηνή). */
+  setResolution(r: Resolution) {
+    this.renderer.setPixelRatio(pixelRatioFor(r));
+    this.resize();
   }
 
   setView(v: ViewMode) {
@@ -129,6 +153,14 @@ export class World {
   setPoses(poses: Record<string, Pose>, now: number) {
     for (const [uid, p] of Object.entries(poses)) {
       if (uid === this.myUid) continue;
+      // ταχύτητα από τις δύο τελευταίες θέσεις: προβλέπουμε λίγο μπροστά ώσπου να έρθει η επόμενη
+      const prev = this.poses.get(uid);
+      const old = this.poseAt.get(uid);
+      const t = performance.now();
+      if (prev && old && (prev.x !== p.x || prev.z !== p.z)) {
+        const dtp = Math.max(0.05, (t - old.t) / 1000);
+        this.poseAt.set(uid, { t, vx: (p.x - prev.x) / dtp, vz: (p.z - prev.z) / dtp });
+      } else if (!old || prev?.x !== p.x || prev?.z !== p.z) this.poseAt.set(uid, { t, vx: 0, vz: 0 });
       this.poses.set(uid, p);
       if (p.e && p.et && p.et !== this.emoteSeen.get(uid) && now - p.et < 4000) {
         this.emoteSeen.set(uid, p.et);
@@ -178,6 +210,13 @@ export class World {
   setBoard(d: BoardData) {
     drawBoard(this.office.board.ctx, d);
     this.office.board.tex.needsUpdate = true;
+    if (d.headline !== this.lastHeadline) {
+      this.lastHeadline = d.headline;
+      for (const tv of this.newsScreens) {
+        drawNewsScreen(tv.ctx, d.headline);
+        tv.tex.needsUpdate = true;
+      }
+    }
   }
 
   setMonitor(i: number, ticker: string, color: string, series: number[], label: string) {
@@ -185,6 +224,102 @@ export class World {
     if (!m) return;
     drawMonitor(m.ctx, ticker, color, series, label);
     m.tex.needsUpdate = true;
+  }
+
+  /** Διακοσμητικά στα γραφεία των παικτών (ανά θέση γραφείου). */
+  setDecor(byDesk: DecorId[][]) {
+    const key = JSON.stringify(byDesk);
+    if (key === this.decorKey) return;
+    this.decorKey = key;
+    this.office.deskDecor.forEach((grp, i) => {
+      grp.clear();
+      (byDesk[i] ?? []).slice(0, DECOR_SPOTS.length).forEach((id, k) => {
+        const d = makeDecor(id);
+        const [x, z] = DECOR_SPOTS[k];
+        d.position.set(x, 0, z);
+        d.rotation.y = 0.4 - k * 0.3;
+        grp.add(d);
+      });
+    });
+  }
+
+  /** Αναβαθμίσεις της ομάδας: εμφανίζονται στο γραφείο. */
+  setUpgrades(ids: UpgradeId[]) {
+    const key = [...ids].sort().join(',');
+    if (key === this.upgradesKey) return;
+    this.upgradesKey = key;
+    for (const [id, g] of this.upgrades) {
+      if (!ids.includes(id)) {
+        g.removeFromParent();
+        this.upgrades.delete(id);
+      }
+    }
+    this.office.colliders.length = this.baseColliders;
+    for (const id of ids) {
+      if (!this.upgrades.has(id)) {
+        const g = this.buildUpgrade(id);
+        this.upgrades.set(id, g);
+        this.scene.add(g);
+      }
+      if (id === 'sofa') this.office.colliders.push({ minX: -9.2, maxX: -6.8, minZ: 6.0, maxZ: 8 });
+      if (id === 'aquarium') this.office.colliders.push({ minX: 11.0, maxX: 12, minZ: 4.5, maxZ: 6.5 });
+    }
+    const gold = ids.includes('goldbell');
+    this.office.bell.scale.setScalar(gold ? 1.35 : 1);
+  }
+
+  private buildUpgrade(id: UpgradeId): THREE.Group {
+    const g = new THREE.Group();
+    switch (id) {
+      case 'sofa': {
+        const s = makeSofa();
+        s.position.set(-8, 0, 7.3);
+        s.rotation.y = Math.PI;
+        g.add(s);
+        break;
+      }
+      case 'aquarium': {
+        const a = makeAquarium();
+        a.position.set(11.55, 0, 5.5);
+        a.rotation.y = -Math.PI / 2;
+        g.add(a);
+        this.aquarium = a;
+        break;
+      }
+      case 'espresso': {
+        const e = makeProEspresso();
+        e.position.set(ROOM.minX + 0.31, 0.94, -4.45);
+        g.add(e);
+        break;
+      }
+      case 'screens': {
+        for (const z of [-4.5, 4]) {
+          const tv = canvasTexture(512, 288);
+          this.newsScreens.push(tv);
+          const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.35), new THREE.MeshBasicMaterial({ map: tv.tex }));
+          mesh.position.set(ROOM.maxX - 0.06, 2.4, z);
+          mesh.rotation.y = -Math.PI / 2;
+          g.add(mesh);
+          const frame = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.45, 2.5), mat('#111'));
+          frame.position.set(ROOM.maxX - 0.03, 2.4, z);
+          g.add(frame);
+          drawNewsScreen(tv.ctx, this.lastHeadline);
+          tv.tex.needsUpdate = true;
+        }
+        break;
+      }
+      case 'neon': {
+        const tex = canvasTexture(512, 128);
+        drawNeon(tex.ctx, this.opts.neonText);
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.8), new THREE.MeshBasicMaterial({ map: tex.tex, transparent: true }));
+        sign.position.set(-8.6, 3.0, ROOM.minZ + 0.05);
+        g.add(sign);
+        break;
+      }
+      case 'goldbell':
+        break;
+    }
+    return g;
   }
 
   setShopOpen(open: boolean) {
@@ -221,7 +356,9 @@ export class World {
       const p = this.poses.get(uid);
       const pl = this.players.get(uid);
       if (p) {
-        a.target.set(p.x, 0, p.z);
+        const v = this.poseAt.get(uid);
+        const ahead = v && p.a === 1 ? Math.min(0.2, (performance.now() - v.t) / 1000) : 0;
+        a.target.set(p.x + (v?.vx ?? 0) * ahead, 0, p.z + (v?.vz ?? 0) * ahead);
         a.targetRy = p.ry;
         a.anim = p.a === 2 ? 'sit' : p.a === 1 ? 'walk' : 'idle';
         if (p.e && p.et && wall - p.et < 2500 && p.a !== 2) a.anim = 'cheer';
@@ -234,6 +371,7 @@ export class World {
       a.update(dt, wall);
     }
     this.updateEnding(dt);
+    if (this.aquarium) animateAquarium(this.aquarium, now / 1000);
     this.updateCamera(dt, now);
     const tagK = this.ending || this.fp ? 1 : this.camera.aspect < 1 ? 1.9 : 1.5;
     if (tagK !== this.tagK) {
@@ -242,6 +380,7 @@ export class World {
     }
     this.onFrame(dt);
     this.renderer.render(this.scene, this.camera);
+    if (import.meta.env.DEV) (window as unknown as { __calls: number }).__calls = this.renderer.info.render.calls;
   }
 
   private updateCamera(_dt: number, now: number) {
@@ -275,7 +414,12 @@ export class World {
       cx = Math.max(ROOM.minX + 0.2, Math.min(ROOM.maxX - 0.2, cx));
       cz = Math.max(ROOM.minZ + 0.2, Math.min(ROOM.maxZ - 0.2, cz));
       cy = Math.max(0.5, Math.min(ROOM.height - 0.2, cy));
-      this.camera.position.set(cx, cy, cz);
+      // η κάμερα ακολουθεί με λίγη «ελαστικότητα» για να μην τρέμει
+      const want = new THREE.Vector3(cx, cy, cz);
+      if (!this.camInit || this.camPos.distanceTo(want) > 4) this.camPos.copy(want);
+      else this.camPos.lerp(want, 1 - Math.exp(-_dt * 14));
+      this.camInit = true;
+      this.camera.position.copy(this.camPos);
       this.camera.lookAt(tx + fx * 2, ty + fy * 2 + 0.2, tz + fz * 2);
       return;
     }

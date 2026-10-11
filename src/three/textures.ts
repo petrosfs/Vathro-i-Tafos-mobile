@@ -1,14 +1,25 @@
 // Υφές που ζωγραφίζονται σε canvas: ο μεγάλος πίνακας, οθόνες, ταμπέλες, ουρανοξύστες.
 import * as THREE from 'three';
 
-export function canvasTexture(w: number, h: number): { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D; canvas: HTMLCanvasElement } {
+const SCALE = new WeakMap<CanvasRenderingContext2D, number>();
+
+/** Πόσο «πυκνές» θα είναι οι υφές (ανάλογα με την ανάλυση): 1 ή 2. */
+let textureScale = 1;
+export function setTextureScale(s: number) {
+  textureScale = s;
+}
+
+/** Υφή από canvas. Το w×h είναι το «λογικό» μέγεθος· σε υψηλή ανάλυση το canvas είναι διπλάσιο. */
+export function canvasTexture(w: number, h: number, scale = textureScale): { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D; canvas: HTMLCanvasElement } {
   const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
+  canvas.width = Math.round(w * scale);
+  canvas.height = Math.round(h * scale);
   const ctx = canvas.getContext('2d')!;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  SCALE.set(ctx, scale);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
+  tex.anisotropy = 8;
   return { tex, ctx, canvas };
 }
 
@@ -41,8 +52,8 @@ export interface BoardData {
 
 /** Ο μεγάλος πίνακας τιμών στον τοίχο. */
 export function drawBoard(ctx: CanvasRenderingContext2D, d: BoardData) {
-  const W = ctx.canvas.width;
-  const H = ctx.canvas.height;
+  const W = ctx.canvas.width / (SCALE.get(ctx) ?? 1);
+  const H = ctx.canvas.height / (SCALE.get(ctx) ?? 1);
   ctx.fillStyle = '#05080F';
   ctx.fillRect(0, 0, W, H);
   // επικεφαλίδα
@@ -131,8 +142,8 @@ function fit(ctx: CanvasRenderingContext2D, s: string, w: number) {
 
 /** Μικρή οθόνη γραφείου: μια μετοχή με το γράφημά της. */
 export function drawMonitor(ctx: CanvasRenderingContext2D, ticker: string, color: string, series: number[], label: string) {
-  const W = ctx.canvas.width;
-  const H = ctx.canvas.height;
+  const W = ctx.canvas.width / (SCALE.get(ctx) ?? 1);
+  const H = ctx.canvas.height / (SCALE.get(ctx) ?? 1);
   ctx.fillStyle = '#071019';
   ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = color;
@@ -171,8 +182,8 @@ export function drawMonitor(ctx: CanvasRenderingContext2D, ticker: string, color
 
 /** Ουρανοξύστες στο σούρουπο για τα παράθυρα. */
 export function drawSkyline(ctx: CanvasRenderingContext2D, seed: number) {
-  const W = ctx.canvas.width;
-  const H = ctx.canvas.height;
+  const W = ctx.canvas.width / (SCALE.get(ctx) ?? 1);
+  const H = ctx.canvas.height / (SCALE.get(ctx) ?? 1);
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, '#1B1A3A');
   g.addColorStop(0.55, '#7A3E62');
@@ -205,8 +216,8 @@ export function drawSkyline(ctx: CanvasRenderingContext2D, seed: number) {
 
 /** Ταμπέλα με κείμενο (π.χ. για το μηχάνημα του καταστήματος). */
 export function drawSign(ctx: CanvasRenderingContext2D, title: string, sub: string, bg: string, fg: string) {
-  const W = ctx.canvas.width;
-  const H = ctx.canvas.height;
+  const W = ctx.canvas.width / (SCALE.get(ctx) ?? 1);
+  const H = ctx.canvas.height / (SCALE.get(ctx) ?? 1);
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = fg;
@@ -220,7 +231,7 @@ export function drawSign(ctx: CanvasRenderingContext2D, title: string, sub: stri
 
 /** Ετικέτα ονόματος πάνω από το avatar. */
 export function nameTagTexture(name: string, color: string): THREE.CanvasTexture {
-  const { tex, ctx, canvas } = canvasTexture(256, 64);
+  const { tex, ctx, canvas } = canvasTexture(256, 64, 2);
   ctx.font = `700 30px ${FONT}`;
   const w = Math.min(248, ctx.measureText(name).width + 32);
   ctx.fillStyle = 'rgba(8,12,22,0.78)';
@@ -237,7 +248,7 @@ export function nameTagTexture(name: string, color: string): THREE.CanvasTexture
 }
 
 export function bubbleTexture(text: string): THREE.CanvasTexture {
-  const { tex, ctx } = canvasTexture(128, 128);
+  const { tex, ctx } = canvasTexture(128, 128, 2);
   ctx.fillStyle = '#FFFFFF';
   ctx.beginPath();
   ctx.arc(64, 58, 52, 0, Math.PI * 2);
@@ -267,7 +278,7 @@ export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w
 
 /** Χαλί με λεπτές γραμμές. */
 export function drawCarpet(ctx: CanvasRenderingContext2D) {
-  const W = ctx.canvas.width;
+  const W = ctx.canvas.width / (SCALE.get(ctx) ?? 1);
   ctx.fillStyle = '#2C3442';
   ctx.fillRect(0, 0, W, W);
   ctx.strokeStyle = '#323B4B';
@@ -284,8 +295,8 @@ export function drawCarpet(ctx: CanvasRenderingContext2D) {
 
 /** Ταφόπλακα με όνομα. */
 export function drawTombstone(ctx: CanvasRenderingContext2D, name: string) {
-  const W = ctx.canvas.width;
-  const H = ctx.canvas.height;
+  const W = ctx.canvas.width / (SCALE.get(ctx) ?? 1);
+  const H = ctx.canvas.height / (SCALE.get(ctx) ?? 1);
   ctx.fillStyle = '#8E949C';
   ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#3B3F46';
@@ -297,4 +308,54 @@ export function drawTombstone(ctx: CanvasRenderingContext2D, name: string) {
   ctx.fillText(name, W / 2, H * 0.58, W - 16);
   ctx.font = `600 20px ${FONT}`;
   ctx.fillText('$0', W / 2, H * 0.8);
+}
+
+/** Οθόνη ειδήσεων στον τοίχο (αναβάθμιση γραφείου). */
+export function drawNewsScreen(ctx: CanvasRenderingContext2D, headline: string) {
+  const W = ctx.canvas.width / (SCALE.get(ctx) ?? 1);
+  const H = ctx.canvas.height / (SCALE.get(ctx) ?? 1);
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#0B1A33');
+  g.addColorStop(1, '#13284D');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#C62828';
+  ctx.fillRect(0, 0, W, 56);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = `900 30px ${FONT}`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillText('● LIVE  NEWS', 20, 29);
+  ctx.font = `700 30px ${FONT}`;
+  ctx.fillStyle = '#F5C542';
+  const words = (headline || '…').split(' ');
+  let line = '';
+  let y = 110;
+  for (const w of words) {
+    const test = line ? `${line} ${w}` : w;
+    if (ctx.measureText(test).width > W - 40 && line) {
+      ctx.fillText(line, 20, y);
+      line = w;
+      y += 42;
+      if (y > H - 30) break;
+    } else line = test;
+  }
+  if (y <= H - 30) ctx.fillText(line, 20, y);
+}
+
+/** Νέον ταμπέλα με το όνομα του fund. */
+export function drawNeon(ctx: CanvasRenderingContext2D, text: string) {
+  const W = ctx.canvas.width / (SCALE.get(ctx) ?? 1);
+  const H = ctx.canvas.height / (SCALE.get(ctx) ?? 1);
+  ctx.clearRect(0, 0, W, H);
+  ctx.font = `900 54px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = '#FF4FD8';
+  ctx.shadowBlur = 22;
+  ctx.fillStyle = '#FFC6F3';
+  ctx.fillText(text.toUpperCase(), W / 2, H / 2, W - 20);
+  ctx.shadowBlur = 8;
+  ctx.fillText(text.toUpperCase(), W / 2, H / 2, W - 20);
+  ctx.shadowBlur = 0;
 }

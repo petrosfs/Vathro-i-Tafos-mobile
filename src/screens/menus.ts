@@ -1,11 +1,14 @@
 // Οθόνες εκτός παρτίδας: αρχική, χαρακτήρας, ρυθμίσεις, solo.
-import { esc, go, h, type Screen } from '../app';
-import { getLang, resolveLang, setLang, t } from '../i18n';
-import { loadSettings, saveSettings, type PersonalSettings } from '../settings';
+import { checkForUpdate, esc, go, h, type Screen } from '../app';
+import { getLang, money, resolveLang, setLang, t } from '../i18n';
+import { loadSettings, RESOLUTIONS, saveSettings, type PersonalSettings } from '../settings';
 import {
   cleanName, GLASSES, HAIR_COLORS, HAIR_STYLES, HATS, loadProfile, randomLook, saveProfile, SKINS, SUITS, TIES,
 } from '../profile';
-import type { Look } from '../sim/engine';
+import type { GameState, Look } from '../sim/engine';
+import { deleteSave, loadSaves } from '../game/saves';
+import { loadProgress } from '../game/progress';
+import { resumeState } from '../sim/save';
 import { createGame } from '../sim/engine';
 import { randomSeed } from '../sim/rng';
 import { AvatarPreview } from '../ui/avatarPreview';
@@ -33,6 +36,7 @@ export const homeScreen: Screen = (root) => {
         <button class="btn primary big" data-go="solo">${esc(t('home.solo'))}</button>
         <button class="btn primary big" data-go="online">${esc(t('home.online'))}</button>
         ${last ? `<button class="btn ghost" data-go="last">${esc(t('home.continue', { code: last }))}</button>` : ''}
+        ${loadSaves().length ? `<button class="btn ghost" data-go="saves">💾 ${esc(t('home.saves'))}</button>` : ''}
         <div class="row">
           <button class="btn ghost" data-go="profile">👤 ${esc(t('home.profile'))}</button>
           <button class="btn ghost" data-go="settings">⚙ ${esc(t('home.settings'))}</button>
@@ -42,6 +46,7 @@ export const homeScreen: Screen = (root) => {
       <p class="version">v${APP_VERSION}</p>
     </main>`);
   root.append(el);
+  checkForUpdate(el);
   const preview = new AvatarPreview(el.querySelector('.home-preview')!);
   preview.set(p.look);
   el.addEventListener('click', (e) => {
@@ -51,11 +56,68 @@ export const homeScreen: Screen = (root) => {
     if (k === 'solo') go(soloScreen);
     else if (k === 'online') go(onlineScreen());
     else if (k === 'last' && last) go(onlineScreen(last, true));
+    else if (k === 'saves') go(savesScreen);
     else if (k === 'profile') go(profileScreen(homeScreen));
     else if (k === 'settings') go(settingsScreen);
     else if (k === 'rules') go(rulesScreen(homeScreen));
   });
   return () => preview.dispose();
+};
+
+/** Ξεκινά solo παρτίδα (νέα ή συνέχεια). */
+function startSolo(state: GameState) {
+  const tr = new LocalTransport(state);
+  go(gameScreen({
+    transport: tr,
+    leave: () => go(homeScreen),
+    endActions: () => ({ again: () => go(soloScreen), home: () => go(homeScreen) }),
+  }));
+  tr.start();
+  if (import.meta.env.DEV) (window as unknown as { __solo: LocalTransport }).__solo = tr;
+}
+
+export const savesScreen: Screen = (root) => {
+  root.className = 'page';
+  const el = h(`
+    <main class="narrow">
+      <header class="page-head"><button class="icon-btn" data-back aria-label="${esc(t('back'))}">←</button><h1>${esc(t('saves.title'))}</h1></header>
+      <div class="saves"></div>
+      <p class="muted small">${esc(t('saves.note'))}</p>
+    </main>`);
+  root.append(el);
+  const render = () => {
+    const list = loadSaves();
+    const df = new Intl.DateTimeFormat(getLang() === 'el' ? 'el-GR' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    el.querySelector('.saves')!.innerHTML = list.length
+      ? list.map((r) => `
+        <div class="save-card">
+          <div class="save-top"><span class="tag">${esc(r.online ? t('saves.typeOnline') : t('saves.typeSolo'))}</span><b>${esc(r.names.join(', '))}</b></div>
+          <p class="muted small">${esc(t('saves.meta', { d: r.day, cash: money(r.cash), date: df.format(r.savedAt) }))}</p>
+          <div class="row">
+            <button class="btn primary" data-solo="${r.id}">${esc(t('saves.solo'))}</button>
+            <button class="btn primary" data-online="${r.id}">${esc(t('saves.online'))}</button>
+            <button class="btn ghost" data-del="${r.id}" aria-label="${esc(t('saves.delete'))}">🗑</button>
+          </div>
+        </div>`).join('')
+      : `<p class="muted">${esc(t('saves.empty'))}</p>`;
+  };
+  render();
+  el.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('button');
+    if (!b) return;
+    if (b.hasAttribute('data-back')) return go(homeScreen);
+    const rec = loadSaves().find((r) => r.id === (b.dataset.solo ?? b.dataset.online ?? b.dataset.del));
+    if (!rec) return;
+    if (b.dataset.del) {
+      if (confirm(t('saves.confirmDelete'))) {
+        deleteSave(rec.id);
+        render();
+      }
+    } else if (b.dataset.solo) {
+      const p = loadProfile();
+      startSolo(resumeState(rec.state, [{ uid: 'me', name: p.name || t('you'), look: p.look }], loadProgress().unlocked));
+    } else go(onlineScreen('', false, rec));
+  });
 };
 
 export const soloScreen: Screen = (root) => {
@@ -72,14 +134,7 @@ export const soloScreen: Screen = (root) => {
   el.querySelector('[data-back]')!.addEventListener('click', () => go(homeScreen));
   el.querySelector('[data-start]')!.addEventListener('click', () => {
     const p = loadProfile();
-    const tr = new LocalTransport(createGame(randomSeed(), cfg, [{ uid: 'me', name: p.name || t('you'), look: p.look }]));
-    go(gameScreen({
-      transport: tr,
-      leave: () => go(homeScreen),
-      endActions: () => ({ again: () => go(soloScreen), home: () => go(homeScreen) }),
-    }));
-    tr.start();
-    if (import.meta.env.DEV) (window as unknown as { __solo: LocalTransport }).__solo = tr;
+    startSolo(createGame(randomSeed(), cfg, [{ uid: 'me', name: p.name || t('you'), look: p.look }], loadProgress().unlocked));
   });
 };
 
@@ -96,6 +151,7 @@ export function profileScreen(back: Screen, after?: () => void): Screen {
       <main class="narrow profile">
         <header class="page-head"><button class="icon-btn" data-back aria-label="${esc(t('back'))}">←</button><h1>${esc(t('profile.title'))}</h1></header>
         <div class="preview big-preview"></div>
+        <p class="muted small center hint">${esc(t('profile.hint'))}</p>
         <label class="field"><span>${esc(t('profile.name'))}</span><input name="name" maxlength="16" placeholder="${esc(t('profile.namePh'))}" value="${esc(p.name)}" /></label>
         <h3>${esc(t('profile.suit'))}</h3>${swatches('suit', SUITS)}
         <h3>${esc(t('profile.tie'))}</h3>${swatches('tie', TIES)}
@@ -158,6 +214,7 @@ export const settingsScreen: Screen = (root) => {
       <h3>${esc(t('settings.lang'))}</h3>${seg('lang', [['auto', t('settings.lang.auto')], ['el', 'Ελληνικά'], ['en', 'English']])}
       <h3>${esc(t('settings.view'))}</h3>${seg('view', [['first', t('view.first')], ['third', t('view.third')], ['overview', t('view.overview')]])}
       <h3>${esc(t('settings.quality'))}</h3>${seg('quality', [['low', t('quality.low')], ['high', t('quality.high')]])}
+      <h3>${esc(t('settings.resolution'))}</h3>${seg('resolution', RESOLUTIONS.map((r) => [r, t(`res.${r}` as Parameters<typeof t>[0])]))}
       <h3>${esc(t('settings.sound'))}</h3>${seg('sound', [['true', t('on')], ['false', t('off')]])}
       <h3>${esc(t('settings.motion'))}</h3>${seg('reduceMotion', [['true', t('on')], ['false', t('off')]])}
       <h3>${esc(t('settings.sensitivity'))}</h3>

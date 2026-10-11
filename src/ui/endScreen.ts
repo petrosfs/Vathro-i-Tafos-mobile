@@ -48,7 +48,7 @@ export function endScreen(s: GameState, myUid: string, acts: EndActions): HTMLEl
     <div class="end ${podium ? 'podium' : 'grave'}">
       <div class="end-card">
         <h1>${esc(podium ? t('end.podium') : t('end.grave'))}</h1>
-        <p class="lead">${esc(podium ? t('end.podiumSub', { d: s.history.length }) : t('end.graveSub', { d: last?.day ?? 1, p: signed(last?.profit ?? 0), q: money(last?.quota ?? 0) }))}</p>
+        <p class="lead">${esc(podium ? t('end.podiumSub', { d: s.history.length }) : (last?.bankrupt ? t('end.bankruptSub', { d: last.day, c: money(last.equity) }) : t('end.graveSub', { d: last?.day ?? 1, p: signed(last?.profit ?? 0), q: money(last?.quota ?? 0) })))}</p>
         <div class="shop-stats">
           <div><small>${esc(t('end.days'))}</small><b>${s.history.filter((r) => r.passed || r.saved).length}</b></div>
           <div><small>${esc(t('end.final'))}</small><b>${money(s.cash)}</b></div>

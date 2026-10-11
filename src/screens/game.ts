@@ -1,7 +1,8 @@
 // Η οθόνη της παρτίδας: 3D γραφείο, HUD, τερματικό, κατάστημα, chat, μενού, τελική σύνοψη.
 import { esc, h, toast, type Screen } from '../app';
 import { money, pct, price, signed, t, tr } from '../i18n';
-import { loadSettings, saveSettings } from '../settings';
+import { loadSettings, RESOLUTIONS, saveSettings, type Resolution } from '../settings';
+import { rulesHtml } from './rules';
 import { sfx } from '../audio';
 import { ranking, type GameState } from '../sim/engine';
 import { STOCKS } from '../sim/stocks';
@@ -16,6 +17,9 @@ import { ShopPanel } from '../ui/shop';
 import { ChatPanel } from '../ui/chat';
 import { endScreen, type EndActions } from '../ui/endScreen';
 import { sanitizeLook } from '../profile';
+import { deleteSave, putSave, saveId } from '../game/saves';
+import { loadProgress, recordProgress } from '../game/progress';
+import { OFFICE_DEF } from '../sim/office';
 import { APP_VERSION } from '../version';
 
 export interface GameScreenOpts {
@@ -27,7 +31,7 @@ export interface GameScreenOpts {
   endActions: (s: GameState) => EndActions;
 }
 
-type PanelKind = 'terminal' | 'shop' | 'chat' | 'menu';
+type PanelKind = 'terminal' | 'shop' | 'chat' | 'menu' | 'rules';
 
 const clock = (ticks: number) => {
   const sec = Math.max(0, Math.ceil(ticks / 2));
@@ -69,8 +73,8 @@ export function gameScreen(opts: GameScreenOpts): Screen {
     const $ = <T extends HTMLElement = HTMLElement>(sel: string) => el.querySelector<T>(sel)!;
 
     const world = new World($('.stage'), {
-      view: settings.view, quality: settings.quality, reduceMotion: settings.reduceMotion,
-      sensitivity: () => loadSettings().sensitivity, shopTitle: t('shop.title').toUpperCase(), shopSub: '🪙 → 📈',
+      view: settings.view, quality: settings.quality, resolution: settings.resolution, reduceMotion: settings.reduceMotion,
+      sensitivity: () => loadSettings().sensitivity, shopTitle: t('shop.title').toUpperCase(), shopSub: '🪙 → 📈', neonText: t('title'),
     });
     world.myUid = g.uid;
     world.start();
@@ -81,13 +85,19 @@ export function gameScreen(opts: GameScreenOpts): Screen {
     const shop = new ShopPanel(g, () => closePanel(), opts.forceStart ? () => opts.forceStart!() : null);
     const chat = new ChatPanel(g.uid, (txt) => tr0.sendChat(txt), (e) => emote(e), () => closePanel());
     const menu = buildMenu();
+    const rules = h(`
+      <section class="panel rules-panel" aria-label="${esc(t('home.rules'))}">
+        <header class="panel-head"><h2>${esc(t('home.rules'))}</h2><button class="icon-btn" data-close aria-label="${esc(t('close'))}">✕</button></header>
+        <div class="panel-body rules">${rulesHtml()}</div>
+      </section>`);
+    rules.querySelector('[data-close]')!.addEventListener('click', () => openPanel('menu'));
 
     function openPanel(k: PanelKind, desk: number | null = null) {
       if (k === 'shop' && g.s?.phase !== 'shop') return;
       closePanel(false);
       openedAt = performance.now();
       panel = k;
-      const p = k === 'terminal' ? terminal.el : k === 'shop' ? shop.el : k === 'chat' ? chat.el : menu;
+      const p = k === 'terminal' ? terminal.el : k === 'shop' ? shop.el : k === 'chat' ? chat.el : k === 'rules' ? rules : menu;
       $('.panels').append(p);
       el.classList.add('panel-open', `open-${k}`);
       world.setUiOpen(true, k === 'terminal' ? (desk ?? g.desk(g.uid)) : null);
@@ -193,6 +203,8 @@ export function gameScreen(opts: GameScreenOpts): Screen {
 
     // ---- αλλαγές κατάστασης ----
     let lastErr = 0;
+    let unlocksSent = false;
+    let savedRev = -1;
     let lastLogN = -1;
     let ended = false;
     let playersKey = '';
@@ -204,6 +216,28 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           uid: u, name: s.players[u].name, look: sanitizeLook(s.players[u].look), desk: i,
         })));
       }
+      world.setDecor(s.order.map((u) => s.players[u]?.decor ?? []));
+      world.setUpgrades(s.office ?? []);
+      // μόνιμα ξεκλειδώματα της συσκευής μου: να είναι διαθέσιμα και σε αυτή την παρτίδα
+      if (!unlocksSent) {
+        unlocksSent = true;
+        const mine = loadProgress().unlocked.filter((id) => !s.unlocked.includes(id));
+        if (mine.length) tr0.send({ t: 'unlock', ids: mine });
+      }
+      // αυτόματη αποθήκευση στο κατάστημα, πριν από κάθε μέρα
+      if (s.phase === 'shop' && s.rev !== savedRev) {
+        savedRev = s.rev;
+        putSave(s, tr0.online);
+      }
+      // πρόοδος: στο τέλος κάθε μέρας και της παρτίδας
+      if (prev && prev.phase !== s.phase && (s.phase === 'shop' || s.phase === 'ended')) {
+        const fresh = recordProgress(s);
+        if (fresh.length) {
+          for (const id of fresh) toast(`🔓 ${t('unlock.new', { name: tr(OFFICE_DEF[id].name) })}`, 'good', 4000);
+          tr0.send({ t: 'unlock', ids: fresh });
+        }
+      }
+      if (s.phase === 'ended') deleteSave(saveId(s));
       const err = g.errors[g.uid];
       if (err && err.n !== lastErr) {
         if (lastErr !== 0 || !prev) toast(t(`err.${err.c}` as Parameters<typeof t>[0]), 'error');
@@ -407,14 +441,23 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       };
     }
 
+    /** Μία οθόνη τη φορά (εναλλάξ), για να μη «κολλάει» το καρέ με πολλές ενημερώσεις υφών μαζί. */
+    let monIdx = 0;
+    const monKeys: string[] = [];
     function monitors(now: number) {
       const s = g.s!;
       const series = g.series();
       const tick = g.tick();
-      for (let i = 0; i < world.office.monitors.length; i++) {
+      const n = world.office.monitors.length;
+      for (let tries = 0; tries < n; tries++) {
+        const i = monIdx++ % n;
         const uid = s.order[i];
         if (!uid) {
-          world.setMonitor(i, '—', '#304060', [], '');
+          if (monKeys[i] !== 'empty') {
+            monKeys[i] = 'empty';
+            world.setMonitor(i, '—', '#304060', [], '');
+            return;
+          }
           continue;
         }
         const k = uid === g.uid ? terminal.selected : (i * 3 + Math.floor(now / 8000)) % STOCKS.length;
@@ -423,7 +466,11 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         const pts: number[] = [];
         for (let j = 0; j <= tick; j += step) pts.push(series[k][j]);
         pts.push(series[k][tick]);
+        const key = `${k}|${tick}|${s.players[uid]?.name}`;
+        if (monKeys[i] === key) continue;
+        monKeys[i] = key;
         world.setMonitor(i, st.ticker, st.color, pts, s.players[uid]?.name ?? '');
+        return;
       }
     }
 
@@ -434,18 +481,35 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       const now = Date.now();
       if (now - lastBoard > 480) {
         lastBoard = now;
-        world.setBoard(boardData());
+        // ο πίνακας ξαναζωγραφίζεται μόνο όταν αλλάζει κάτι πάνω του
+        const bd = boardData();
+        const key = JSON.stringify(bd);
+        if (key !== boardKey) {
+          boardKey = key;
+          world.setBoard(bd);
+        }
       }
-      if (now - lastMon > 1000) {
-        lastMon = now;
-        monitors(now);
-      }
-      if (now - lastPoseSent > 150) {
+    }, 250);
+    let boardKey = '';
+    // ανά καρέ: θέση στους άλλους (10 φορές το δευτερόλεπτο), μία οθόνη γραφείου, ομαλό γράφημα
+    world.onFrame = () => {
+      if (!g.s) return;
+      const now = Date.now();
+      if (now - lastPoseSent > 100) {
         lastPoseSent = now;
         sendPose();
         if (pendingEmote && tr0.now() - pendingEmote.et > 3000) pendingEmote = null;
       }
-    }, 250);
+      if (now - lastMon > 140) {
+        lastMon = now;
+        monitors(now);
+      }
+      if (panel === 'terminal' && now - lastChart > 45) {
+        lastChart = now;
+        terminal.drawLive();
+      }
+    };
+    let lastChart = 0;
 
     // ---- μενού ----
     function buildMenu(): HTMLElement {
@@ -459,12 +523,17 @@ export function gameScreen(opts: GameScreenOpts): Screen {
               <button data-v="third">${esc(t('view.third'))}</button>
               <button data-v="overview">${esc(t('view.overview'))}</button>
             </div>
+            <h3>${esc(t('settings.resolution'))}</h3>
+            <div class="seg wrap" data-k="resolution">
+              ${RESOLUTIONS.map((r) => `<button data-v="${r}">${esc(t(`res.${r}` as Parameters<typeof t>[0]))}</button>`).join('')}
+            </div>
             <h3>${esc(t('settings.sound'))}</h3>
             <div class="seg" data-k="sound">
               <button data-v="1">${esc(t('on'))}</button>
               <button data-v="0">${esc(t('off'))}</button>
             </div>
             <button class="btn primary wide" data-resume>${esc(t('menu.resume'))}</button>
+            <button class="btn ghost wide" data-rules>📖 ${esc(t('home.rules'))}</button>
             <button class="btn danger wide" data-leave>${esc(t('menu.leave'))}</button>
             <p class="version muted small center">${esc(t('menu.version', { v: APP_VERSION }))}</p>
           </div>
@@ -473,6 +542,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         const st = loadSettings();
         m.querySelectorAll<HTMLElement>('[data-k="view"] button').forEach((b) => b.classList.toggle('sel', b.dataset.v === st.view));
         m.querySelectorAll<HTMLElement>('[data-k="sound"] button').forEach((b) => b.classList.toggle('sel', b.dataset.v === (st.sound ? '1' : '0')));
+        m.querySelectorAll<HTMLElement>('[data-k="resolution"] button').forEach((b) => b.classList.toggle('sel', b.dataset.v === st.resolution));
       };
       sync();
       m.querySelector('[data-close]')!.addEventListener('click', () => closePanel());
@@ -482,6 +552,14 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         if (!v) return;
         saveSettings({ ...loadSettings(), view: v });
         world.setView(v);
+        sync();
+      });
+      m.querySelector('[data-rules]')!.addEventListener('click', () => openPanel('rules'));
+      m.querySelector('[data-k="resolution"]')!.addEventListener('click', (e) => {
+        const v = (e.target as HTMLElement).closest<HTMLElement>('[data-v]')?.dataset.v as Resolution | undefined;
+        if (!v) return;
+        saveSettings({ ...loadSettings(), resolution: v });
+        world.setResolution(v);
         sync();
       });
       m.querySelector('[data-k="sound"]')!.addEventListener('click', (e) => {

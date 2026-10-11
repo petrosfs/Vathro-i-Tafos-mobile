@@ -8,6 +8,9 @@ import {
   SHOP_OFFERS, STOP_LOSS, type ConsumableId, type ItemId, type PerkId,
 } from './items';
 import { hash, stream } from './rng';
+import {
+  available, ESPRESSO_TICKS, MAX_DECOR, OFFICE_DEF, type DecorId, type OfficeId, type UpgradeId,
+} from './office';
 import { STOCK_COUNT } from './stocks';
 
 export interface Look {
@@ -27,9 +30,18 @@ export interface GameConfig {
   /** Μέρες ως το βάθρο· 0 = χωρίς τέλος. */
   podiumDays: number;
   startCash: number;
+  /** Πότε τελειώνει η παρτίδα: με την πρώτη αποτυχία στόχου ή μόνο με χρεωκοπία. */
+  endRule?: EndRule;
 }
 
-export const DEFAULT_CONFIG: GameConfig = { dayLen: 600, difficulty: 'normal', podiumDays: 10, startCash: 10000 };
+export type EndRule = 'quota' | 'bankrupt';
+
+export const DEFAULT_CONFIG: GameConfig = { dayLen: 600, difficulty: 'normal', podiumDays: 10, startCash: 10000, endRule: 'quota' };
+
+/** Χρεωκοπία: ταμείο κάτω από αυτό το ποσοστό του αρχικού κεφαλαίου στο τέλος της μέρας. */
+export const BANKRUPT_SHARE = 0.1;
+/** Με το αλεξίπτωτο, μετά από χρεωκοπία το ταμείο ξαναγεμίζει ως εδώ. */
+export const RESCUE_SHARE = 0.25;
 
 export interface Position {
   id: number;
@@ -65,6 +77,8 @@ export interface PlayerState {
   stats: PlayerStats;
   /** Κέρδος/ζημιά της τρέχουσας μέρας από κλεισμένες θέσεις. */
   dayPnl: number;
+  /** Διακοσμητικά στο γραφείο του. */
+  decor: DecorId[];
 }
 
 export interface DayResult {
@@ -75,6 +89,8 @@ export interface DayResult {
   saved: boolean;
   coins: number;
   equity: number;
+  /** Έκλεισε επειδή χρεωκόπησε (κανόνας «χρεωκοπία»). */
+  bankrupt?: boolean;
 }
 
 export type LogKind = 'open' | 'close' | 'liq' | 'stop' | 'item' | 'buy' | 'eod';
@@ -90,6 +106,7 @@ export interface LogEntry {
   amount?: number;
   pnl?: number;
   item?: ItemId;
+  office?: OfficeId;
 }
 
 export interface Tip {
@@ -137,7 +154,15 @@ export interface GameState {
   checked: number;
   nextId: number;
   logN: number;
+  /** Έκδοση της μορφής της κατάστασης (για αποθηκευμένες παρτίδες από παλιότερες εκδόσεις). */
+  schema: number;
+  /** Ξεκλειδωμένα αντικείμενα γραφείου (από όλους τους παίκτες μαζί). */
+  unlocked: OfficeId[];
+  /** Αναβαθμίσεις γραφείου της ομάδας. */
+  office: UpgradeId[];
 }
+
+export const SCHEMA = 2;
 
 export type Action =
   | { t: 'open'; stock: number; side: 1 | -1; amount: number; tick: number }
@@ -146,11 +171,14 @@ export type Action =
   | { t: 'use'; slot: number; stock?: number; tick: number }
   | { t: 'buy'; offer: number }
   | { t: 'reroll' }
-  | { t: 'ready'; v: boolean };
+  | { t: 'ready'; v: boolean }
+  | { t: 'decor'; id: DecorId }
+  | { t: 'upgrade'; id: UpgradeId }
+  | { t: 'unlock'; ids: string[] };
 
 export type ActionError =
   | 'phase' | 'tick' | 'amount' | 'cash' | 'stock' | 'perk' | 'max' | 'gone' | 'owner'
-  | 'slot' | 'coins' | 'full' | 'owned' | 'player';
+  | 'slot' | 'coins' | 'full' | 'owned' | 'player' | 'locked';
 
 export type Prices = (stock: number, tick: number) => number;
 
@@ -183,19 +211,22 @@ export function newStats(): PlayerStats {
   return { trades: 0, pnl: 0, best: 0, worst: 0, items: 0, volume: 0, liquidations: 0 };
 }
 
+export function newPlayer(name: string, look: Look): PlayerState {
+  return { name, look, inv: [], lev: false, ready: false, stats: newStats(), dayPnl: 0, decor: [] };
+}
+
 export function createGame(
-  seed: number, config: GameConfig, players: { uid: string; name: string; look: Look }[],
+  seed: number, config: GameConfig, players: { uid: string; name: string; look: Look }[], unlocked: string[] = [],
 ): GameState {
   const s: GameState = {
     rev: 0, seed, config, phase: 'shop', day: 1, startAt: 0, len: config.dayLen, coffee: 0,
     opens: firstOpens(), cash: config.startCash, debt: 0, dayStartEquity: config.startCash, quota: 0,
     coins: START_COINS, perks: [], positions: [], effects: [], tips: [], scoops: [], players: {},
     order: players.map((p) => p.uid), offers: [], rerolls: 0, history: [], log: [], result: null,
-    checked: 0, nextId: 1, logN: 0,
+    checked: 0, nextId: 1, logN: 0, schema: SCHEMA, office: [],
+    unlocked: [...new Set(unlocked)].filter((id) => id in OFFICE_DEF) as OfficeId[],
   };
-  for (const p of players) {
-    s.players[p.uid] = { name: p.name, look: p.look, inv: [], lev: false, ready: false, stats: newStats(), dayPnl: 0 };
-  }
+  for (const p of players) s.players[p.uid] = newPlayer(p.name, p.look);
   s.offers = rollOffers(s);
   s.quota = quotaFor(s);
   return s;
@@ -375,6 +406,37 @@ export function applyAction(s: GameState, uid: string, a: Action, prices: Prices
       pl.ready = !!a.v;
       return null;
     }
+    case 'unlock': {
+      // νέο μόνιμο ξεκλείδωμα κάποιου παίκτη: διαθέσιμο αμέσως και σε αυτή την παρτίδα
+      const ids = (Array.isArray(a.ids) ? a.ids : []).filter((id) => id in OFFICE_DEF) as OfficeId[];
+      s.unlocked = [...new Set([...s.unlocked, ...ids])];
+      return null;
+    }
+    case 'decor': {
+      if (s.phase !== 'shop') return 'phase';
+      const def = OFFICE_DEF[a.id];
+      if (!def || def.kind !== 'decor') return 'gone';
+      if (!available(a.id, s.unlocked)) return 'locked';
+      if (pl.decor.length >= MAX_DECOR) return 'full';
+      if (pl.decor.includes(a.id)) return 'owned';
+      if (s.coins < def.price) return 'coins';
+      s.coins -= def.price;
+      pl.decor.push(a.id);
+      log(s, { tick: -1, kind: 'buy', who: uid, office: a.id });
+      return null;
+    }
+    case 'upgrade': {
+      if (s.phase !== 'shop') return 'phase';
+      const def = OFFICE_DEF[a.id];
+      if (!def || def.kind !== 'upgrade') return 'gone';
+      if (!available(a.id, s.unlocked)) return 'locked';
+      if (s.office.includes(a.id)) return 'owned';
+      if (s.coins < def.price) return 'coins';
+      s.coins -= def.price;
+      s.office.push(a.id);
+      log(s, { tick: -1, kind: 'buy', who: uid, office: a.id });
+      return null;
+    }
   }
 }
 
@@ -389,7 +451,7 @@ export function allReady(s: GameState, online: (uid: string) => boolean): boolea
 export function startDay(s: GameState, startAt: number) {
   s.phase = 'trading';
   s.startAt = startAt;
-  s.len = s.config.dayLen;
+  s.len = s.config.dayLen + (s.office.includes('espresso') ? ESPRESSO_TICKS : 0);
   s.coffee = 0;
   s.checked = 0;
   s.quota = quotaFor(s);
@@ -430,18 +492,30 @@ export function endDay(s: GameState, prices: Prices): DayResult {
   s.cash = Math.round(s.cash * 100) / 100;
   const profit = s.cash - s.dayStartEquity;
   const passed = profit >= s.quota && s.cash > 0;
+  const bankruptRule = s.config.endRule === 'bankrupt';
+  let bankrupt = bankruptRule && s.cash < s.config.startCash * BANKRUPT_SHARE;
   let saved = false;
   let coins = 0;
   if (passed) {
     coins = 3 + Math.max(0, Math.min(5, Math.floor((profit - s.quota) / (s.quota * 0.25))));
     if (s.perks.includes('piggy')) coins += 2;
-  } else if (s.perks.includes('parachute') && s.cash > 0) {
+    if (s.office.includes('goldbell')) coins += 1;
+  }
+  if (bankruptRule) {
+    // Με χρεωκοπία: ο χαμένος στόχος κοστίζει μόνο τα νομίσματα· τέλος αν αδειάσει το ταμείο.
+    if (bankrupt && s.perks.includes('parachute')) {
+      saved = true;
+      bankrupt = false;
+      s.perks = s.perks.filter((p) => p !== 'parachute');
+      s.cash = Math.max(s.cash, Math.round(s.config.startCash * RESCUE_SHARE));
+    }
+  } else if (!passed && s.perks.includes('parachute') && s.cash > 0) {
     saved = true;
     s.perks = s.perks.filter((p) => p !== 'parachute');
     coins = 1;
   }
   s.coins += coins;
-  const r: DayResult = { day: s.day, quota: s.quota, profit, passed, saved, coins, equity: s.cash };
+  const r: DayResult = { day: s.day, quota: s.quota, profit, passed, saved, coins, equity: s.cash, bankrupt };
   s.history.push(r);
   const opens: number[] = [];
   for (let k = 0; k < STOCK_COUNT; k++) opens.push(Math.round(prices(k, s.len) * 10000) / 10000);
@@ -450,7 +524,8 @@ export function endDay(s: GameState, prices: Prices): DayResult {
   s.tips = [];
   s.scoops = [];
   for (const u of s.order) if (s.players[u]) s.players[u].lev = false;
-  if (!passed && !saved) {
+  const over = bankruptRule ? bankrupt : !passed && !saved;
+  if (over) {
     s.phase = 'ended';
     s.result = 'grave';
   } else if (s.config.podiumDays > 0 && s.day >= s.config.podiumDays) {

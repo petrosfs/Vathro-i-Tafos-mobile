@@ -10,12 +10,43 @@ export class AvatarPreview {
   private avatar: Avatar | null = null;
   private raf = 0;
   private last = performance.now();
+  /** Γυρίζει μόνος του· σταματά με πάτημα, και με σύρσιμο τον γυρίζεις εσύ. */
+  private spinning = true;
+  private drag: { x: number; moved: number; id: number } | null = null;
+  private velocity = 0;
 
   constructor(readonly el: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this.renderer.setPixelRatio(Math.min(3, window.devicePixelRatio || 1));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     el.append(this.renderer.domElement);
+    const c = this.renderer.domElement;
+    c.style.touchAction = 'none';
+    c.style.cursor = 'grab';
+    c.addEventListener('pointerdown', (e) => {
+      this.drag = { x: e.clientX, moved: 0, id: e.pointerId };
+      c.setPointerCapture(e.pointerId);
+      c.style.cursor = 'grabbing';
+      this.velocity = 0;
+    });
+    c.addEventListener('pointermove', (e) => {
+      if (!this.drag || e.pointerId !== this.drag.id || !this.avatar) return;
+      const dx = e.clientX - this.drag.x;
+      this.drag.x = e.clientX;
+      this.drag.moved += Math.abs(dx);
+      if (this.drag.moved > 4) this.spinning = false;
+      this.avatar.group.rotation.y += dx * 0.012;
+      this.velocity = dx * 0.012;
+    });
+    const end = (e: PointerEvent) => {
+      if (!this.drag || e.pointerId !== this.drag.id) return;
+      // σκέτο πάτημα (χωρίς σύρσιμο): παύση ή συνέχεια της περιστροφής
+      if (this.drag.moved <= 4) this.spinning = !this.spinning;
+      this.drag = null;
+      c.style.cursor = 'grab';
+    };
+    c.addEventListener('pointerup', end);
+    c.addEventListener('pointercancel', end);
     this.scene.add(new THREE.HemisphereLight('#FFFFFF', '#40384A', 2.2));
     const d = new THREE.DirectionalLight('#FFF0DD', 1.4);
     d.position.set(2, 3, 4);
@@ -41,7 +72,12 @@ export class AvatarPreview {
         }
       }
       if (this.avatar) {
-        this.avatar.group.rotation.y += dt * 0.6;
+        if (this.spinning && !this.drag) this.avatar.group.rotation.y += dt * 0.6;
+        else if (!this.drag && Math.abs(this.velocity) > 0.0005) {
+          // λίγη αδράνεια μετά το σύρσιμο
+          this.avatar.group.rotation.y += this.velocity;
+          this.velocity *= Math.exp(-dt * 6);
+        }
         this.avatar.update(dt, Date.now(), false);
       }
       this.renderer.render(this.scene, this.camera);

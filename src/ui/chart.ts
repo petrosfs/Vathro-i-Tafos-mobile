@@ -33,6 +33,10 @@ export function drawChart(canvas: HTMLCanvasElement, d: ChartData) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cw, ch);
   const now = Math.max(0, Math.min(d.len, Math.floor(d.now)));
+  // κλάσμα ανάμεσα στο τρέχον και το επόμενο tick: η γραμμή προχωρά ομαλά
+  const frac = now < d.len ? Math.max(0, Math.min(1, d.now - now)) : 0;
+  const headT = now + frac;
+  const headV = frac > 0 ? d.series[now] + (d.series[now + 1] - d.series[now]) * frac : d.series[now];
   const futTo = d.future ? Math.min(d.len, d.future.to) : now;
   const end = Math.max(now, futTo);
   let lo = Infinity;
@@ -42,6 +46,8 @@ export function drawChart(canvas: HTMLCanvasElement, d: ChartData) {
     if (v < lo) lo = v;
     if (v > hi) hi = v;
   }
+  lo = Math.min(lo, headV);
+  hi = Math.max(hi, headV);
   const pad = (hi - lo) * 0.12 || hi * 0.02 || 1;
   lo -= pad;
   hi += pad;
@@ -52,7 +58,7 @@ export function drawChart(canvas: HTMLCanvasElement, d: ChartData) {
   const W = cw - L - R;
   const H = ch - T - B;
   // Ζουμ στο κομμάτι της μέρας που έχει περάσει, ώστε να φαίνονται οι κινήσεις από την αρχή.
-  const span = Math.min(d.len, Math.max(120, Math.ceil(now * 1.15) + 10, futTo + 10));
+  const span = Math.min(d.len, Math.max(120, Math.ceil(headT * 1.15) + 10, futTo + 10));
   const x = (t: number) => L + (t / span) * W;
   const y = (v: number) => T + (1 - (v - lo) / (hi - lo)) * H;
   // πλέγμα
@@ -89,7 +95,7 @@ export function drawChart(canvas: HTMLCanvasElement, d: ChartData) {
   }
   // γραμμή τιμής
   const first = d.series[0];
-  const last = d.series[now];
+  const last = headV;
   const col = last >= first ? UP : DOWN;
   const grad = ctx.createLinearGradient(0, T, 0, T + H);
   grad.addColorStop(0, col + '44');
@@ -99,7 +105,8 @@ export function drawChart(canvas: HTMLCanvasElement, d: ChartData) {
     if (i) ctx.lineTo(x(i), y(d.series[i]));
     else ctx.moveTo(x(i), y(d.series[i]));
   }
-  ctx.lineTo(x(now), T + H);
+  ctx.lineTo(x(headT), y(headV));
+  ctx.lineTo(x(headT), T + H);
   ctx.lineTo(x(0), T + H);
   ctx.closePath();
   ctx.fillStyle = grad;
@@ -109,13 +116,14 @@ export function drawChart(canvas: HTMLCanvasElement, d: ChartData) {
     if (i) ctx.lineTo(x(i), y(d.series[i]));
     else ctx.moveTo(x(i), y(d.series[i]));
   }
+  ctx.lineTo(x(headT), y(headV));
   ctx.strokeStyle = col;
   ctx.lineWidth = 2;
   ctx.stroke();
   // μέλλον από την εσωτερική πληροφορία
   if (d.future && futTo > now) {
     ctx.beginPath();
-    ctx.moveTo(x(now), y(d.series[now]));
+    ctx.moveTo(x(headT), y(headV));
     for (let i = now + 1; i <= futTo; i++) ctx.lineTo(x(i), y(d.series[i]));
     ctx.strokeStyle = '#F5C542';
     ctx.setLineDash([5, 4]);
@@ -144,7 +152,7 @@ export function drawChart(canvas: HTMLCanvasElement, d: ChartData) {
     ctx.setLineDash([2, 3]);
     ctx.beginPath();
     ctx.moveTo(mx, my);
-    ctx.lineTo(x(now), my);
+    ctx.lineTo(x(headT), my);
     ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -152,7 +160,7 @@ export function drawChart(canvas: HTMLCanvasElement, d: ChartData) {
   const ly = y(last);
   ctx.fillStyle = col;
   ctx.beginPath();
-  ctx.arc(x(now), ly, 3.5, 0, Math.PI * 2);
+  ctx.arc(x(headT), ly, 3.5, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillRect(L + W + 2, ly - 9, R - 4, 18);
   ctx.fillStyle = '#05080F';

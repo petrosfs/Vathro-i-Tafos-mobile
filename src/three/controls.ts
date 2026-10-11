@@ -12,6 +12,7 @@ export class FirstPerson {
   pitch = -0.1;
   enabled = true;
   moving = false;
+  private vel = { x: 0, z: 0 };
   private keys = new Set<string>();
   private joy = { x: 0, y: 0, id: -1, ox: 0, oy: 0 };
   private look = { id: -1, x: 0, y: 0 };
@@ -140,11 +141,22 @@ export class FirstPerson {
         fz /= len;
       }
     }
-    this.moving = Math.hypot(fx, fz) > 0.05;
-    const run = this.keys.has('ShiftLeft') ? 1.6 : 1;
-    this.pos.x += fx * SPEED * run * dt;
-    this.pos.z += fz * SPEED * run * dt;
+    // ομαλή επιτάχυνση και φρενάρισμα αντί για απότομο ξεκίνημα/σταμάτημα
+    const run = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') ? 1.6 : 1;
+    const k = 1 - Math.exp(-dt * 12);
+    this.vel.x += (fx * SPEED * run - this.vel.x) * k;
+    this.vel.z += (fz * SPEED * run - this.vel.z) * k;
+    this.moving = Math.hypot(this.vel.x, this.vel.z) > 0.35;
+    const bx = this.pos.x;
+    const bz = this.pos.z;
+    this.pos.x += this.vel.x * dt;
+    this.pos.z += this.vel.z * dt;
     collide(this.pos, colliders);
+    // αν χτυπήσαμε κάπου, η ταχύτητα προς εκεί μηδενίζεται (για να μη «κολλάει» στον τοίχο)
+    if (dt > 0) {
+      this.vel.x = (this.pos.x - bx) / dt;
+      this.vel.z = (this.pos.z - bz) / dt;
+    }
   }
 
   apply(camera: THREE.PerspectiveCamera) {

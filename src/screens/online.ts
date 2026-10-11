@@ -14,6 +14,11 @@ import { sortedPlayers } from '../net/players';
 const net = () => import('../net/room');
 let Transport: typeof OnlineTransport | null = null;
 import { configForm, configSummary, loadConfig } from '../ui/configForm';
+import type { SaveRec } from '../game/saves';
+import { resumeState } from '../sim/save';
+import { loadProgress } from '../game/progress';
+import { APP_VERSION } from '../version';
+import { checkForUpdate } from '../app';
 import { PLAYER_COLORS } from '../three/avatar';
 import { gameScreen } from './game';
 import { homeScreen, profileScreen } from './menus';
@@ -51,7 +56,10 @@ export function inviteUrl(code: string) {
   return `${location.origin}${import.meta.env.BASE_URL}?room=${code}`;
 }
 
-export function onlineScreen(code = '', auto = false): Screen {
+/** Αποθηκευμένες παρτίδες που συνεχίζουν σε δωμάτιο που μόλις φτιάξαμε (ανά κωδικό). */
+const pendingResume = new Map<string, SaveRec>();
+
+export function onlineScreen(code = '', auto = false, resume: SaveRec | null = null): Screen {
   return (root) => {
     root.className = 'page';
     const p = loadProfile();
@@ -64,9 +72,10 @@ export function onlineScreen(code = '', auto = false): Screen {
       <main class="narrow">
         <header class="page-head"><button class="icon-btn" data-back aria-label="${esc(t('back'))}">←</button><h1>${esc(t('online.title'))}</h1></header>
         <label class="field"><span>${esc(t('profile.name'))}</span><input name="name" maxlength="16" placeholder="${esc(t('profile.namePh'))}" value="${esc(p.name)}" /></label>
-        <button class="btn primary big wide" data-create>${esc(t('online.create'))}</button>
-        <p class="divider"><span>${esc(t('online.or'))}</span></p>
-        <form class="join">
+        ${resume ? `<p class="lead">${esc(t('resume.online', { d: resume.day, names: resume.names.join(', ') }))}</p>` : ''}
+        <button class="btn primary big wide" data-create>${esc(resume ? t('resume.create') : t('online.create'))}</button>
+        <p class="divider" ${resume ? 'hidden' : ''}><span>${esc(t('online.or'))}</span></p>
+        <form class="join" ${resume ? 'hidden' : ''}>
           <input name="code" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="${esc(t('online.code'))}" value="${esc(normalizeCode(code))}" />
           <button class="btn primary">${esc(t('online.join'))}</button>
         </form>
@@ -98,13 +107,25 @@ export function onlineScreen(code = '', auto = false): Screen {
         Transport ??= (await import('../net/onlineTransport')).OnlineTransport;
         enterRoom(room);
       } catch (e) {
-        const code = (e as Error).message as RoomError;
-        status.textContent = t(`online.err.${['not-found', 'started', 'full', 'bad-code'].includes(code) ? code : 'network'}` as Parameters<typeof t>[0]);
+        const msg = (e as Error).message;
+        if (msg.startsWith('version:')) {
+          status.innerHTML = `${esc(t('online.err.version', { v: msg.slice(8), mine: APP_VERSION }))} <button class="btn small" data-reload>↻</button>`;
+          status.querySelector('[data-reload]')?.addEventListener('click', () => location.reload());
+        } else {
+          const code = msg as RoomError;
+          status.textContent = t(`online.err.${['not-found', 'started', 'full', 'bad-code'].includes(code) ? code : 'network'}` as Parameters<typeof t>[0]);
+        }
         busy = false;
       }
     };
     el.querySelector('[data-back]')!.addEventListener('click', () => go(homeScreen));
-    el.querySelector('[data-create]')!.addEventListener('click', () => run(async (n) => (await net()).Room.create(n, loadProfile().look, loadConfig())));
+    el.querySelector('[data-create]')!.addEventListener('click', () => run(async (n) => {
+      const { Room } = await net();
+      if (!resume) return Room.create(n, loadProfile().look, loadConfig());
+      const room = await Room.create(n, loadProfile().look, resume.state.config, { day: resume.day, names: resume.names });
+      pendingResume.set(room.code, resume);
+      return room;
+    }));
     el.querySelector('form')!.addEventListener('submit', (e) => {
       e.preventDefault();
       run(async (n) => (await net()).Room.join(codeInput.value, n, loadProfile().look));
@@ -173,6 +194,7 @@ export function lobbyScreen(room: Room): Screen {
       <main class="narrow lobby">
         <header class="page-head"><button class="icon-btn" data-leave aria-label="${esc(t('lobby.leave'))}">←</button><h1>${esc(t('lobby.title', { code: room.code }))}</h1></header>
         <div class="code-big">${room.code}</div>
+        <div class="resume-box"></div>
         <button class="btn ghost wide" data-share>🔗 ${esc(t('lobby.share'))}</button>
         <h3 class="players-h"></h3>
         <ul class="players"></ul>
@@ -182,6 +204,7 @@ export function lobbyScreen(room: Room): Screen {
         <div class="lobby-foot"></div>
       </main>`);
     root.append(el);
+    checkForUpdate(el);
     let cfgForHost: HTMLElement | null = null;
     let starting = false;
     const render = () => {
@@ -199,7 +222,16 @@ export function lobbyScreen(room: Room): Screen {
           ${room.isHost && uid !== room.uid ? `<button class="link" data-kick="${esc(uid)}">${esc(t('lobby.kick'))}</button>` : ''}
         </li>`).join(''));
       const cfg = el.querySelector('.cfg')!;
-      if (room.isHost) {
+      // συνέχεια αποθηκευμένης παρτίδας: ποιοι έπαιζαν και ποιοι ήρθαν
+      const rs = v.meta.resume;
+      const joinedNames = new Set(players.map(([, p]) => p.name.trim().toLocaleLowerCase()));
+      setHtml(el.querySelector('.resume-box')!, rs
+        ? `<div class="result saved"><b>${esc(t('resume.banner', { d: rs.day }))}</b><span>${rs.names.map((n) => `${joinedNames.has(n.trim().toLocaleLowerCase()) ? '✓' : '·'} ${esc(n)}`).join(' &nbsp; ')}</span><span>${esc(t('resume.match'))}</span></div>`
+        : '');
+      if (rs) {
+        cfgForHost = null;
+        setHtml(cfg as HTMLElement, `<p class="muted">${esc(configSummary(v.meta.config))}</p>`);
+      } else if (room.isHost) {
         if (!cfgForHost) {
           cfg.innerHTML = '';
           delete (cfg as HTMLElement).dataset.html;
@@ -244,8 +276,12 @@ export function lobbyScreen(room: Room): Screen {
       if (tgt.closest('[data-start]') && !starting) {
         starting = true;
         const lineup = room.lineup().slice(0, MAX_ROOM_PLAYERS);
-        const state: GameState = createGame(randomSeed(), room.view.meta!.config,
-          lineup.map(([uid, p]) => ({ uid, name: p.name, look: p.look })));
+        const joiners = lineup.map(([uid, p]) => ({ uid, name: p.name, look: p.look }));
+        const saved = pendingResume.get(room.code);
+        const state: GameState = saved && room.view.meta?.resume
+          ? resumeState(saved.state, joiners, loadProgress().unlocked)
+          : createGame(randomSeed(), room.view.meta!.config, joiners, loadProgress().unlocked);
+        pendingResume.delete(room.code);
         await room.start(JSON.stringify({ s: state, e: {} })).catch(() => {
           starting = false;
           toast(t('online.err.network'), 'error');

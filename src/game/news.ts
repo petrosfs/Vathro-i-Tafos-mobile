@@ -3,6 +3,7 @@ import type { GameState } from '../sim/engine';
 import { CRASH, GENERIC_DOWN, GENERIC_UP, MARKET_DOWN, MARKET_UP, RUMOR_PREFIX, SPECIFIC } from '../sim/headlines';
 import { RADAR_TICKS, SCOOP_COUNT, WIRE_TICKS } from '../sim/items';
 import { dayNews, type NewsEvent } from '../sim/market';
+import { SCREENS_TICKS } from '../sim/office';
 import { STOCKS } from '../sim/stocks';
 
 export function headline(n: NewsEvent): string {
@@ -32,7 +33,8 @@ export function newsOf(s: GameState): NewsEvent[] {
 }
 
 /** Πότε βλέπει η ομάδα μια είδηση (νωρίτερα με τη συνδρομή στο πρακτορείο). */
-export const shownAt = (s: GameState, n: NewsEvent) => n.tick - (s.perks.includes('wire') ? WIRE_TICKS : 0);
+export const shownAt = (s: GameState, n: NewsEvent) =>
+  n.tick - (s.perks.includes('wire') ? WIRE_TICKS : 0) - (s.office?.includes('screens') ? SCREENS_TICKS : 0);
 
 export function visibleNews(s: GameState, tick: number): NewsEvent[] {
   return newsOf(s).filter((n) => shownAt(s, n) <= tick);

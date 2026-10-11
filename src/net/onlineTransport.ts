@@ -2,6 +2,7 @@ import {
   limitToLast, onChildAdded, onValue, push, query, set, update, type Unsubscribe,
 } from 'firebase/database';
 import type { Action, GameState } from '../sim/engine';
+import { migrateState } from '../sim/save';
 import { HostRunner, type HostError } from '../game/host';
 import type { ChatMsg, Pose, Transport } from './transport';
 import type { Room } from './room';
@@ -9,7 +10,7 @@ import type { Room } from './room';
 /** Πόσο συχνά γράφει ο host την κατάσταση (ms). */
 const FLUSH_MS = 150;
 /** Πόσο συχνά στέλνει κάθε παίκτης τη θέση του (ms). */
-const POSE_MS = 120;
+const POSE_MS = 100;
 
 /** Λιγότερα δεκαδικά στο δίκτυο: ίδια ακρίβεια για το παιχνίδι, μικρότερα μηνύματα. */
 const compact = (_k: string, v: unknown) =>
@@ -46,6 +47,7 @@ export class OnlineTransport implements Transport {
         if (typeof v !== 'string') return;
         try {
           const w = JSON.parse(v) as Wire;
+          w.s = migrateState(w.s);
           // Ο host έχει ήδη την κατάσταση· αγνοεί την ηχώ του.
           if (this.host && this.last && w.s.rev <= this.last.s.rev) return;
           this.last = w;

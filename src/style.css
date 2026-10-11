@@ -1526,3 +1526,103 @@ tr.me td {
     transition: none !important;
   }
 }
+
+/* ---------- γραφείο στο κατάστημα ---------- */
+.ocards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ocard {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #121a2a;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.4rem 0.6rem;
+}
+
+.ocard.mine {
+  border-color: rgba(61, 220, 132, 0.45);
+}
+
+.ocard.locked {
+  opacity: 0.6;
+}
+
+.ocard .oname {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.ocard .oname small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.ocard .lock,
+.ocard .owned {
+  font-size: 0.72rem;
+  text-align: right;
+  max-width: 40%;
+}
+
+.ocard .owned {
+  color: var(--up);
+}
+
+/* ---------- αποθηκευμένες παρτίδες ---------- */
+.saves {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.save-card {
+  background: #121a2a;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+}
+
+.save-card p {
+  margin: 0.3rem 0 0.6rem;
+}
+
+.save-top {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.save-card .row > .btn.ghost {
+  flex: 0 0 auto;
+}
+
+/* ---------- νέα έκδοση ---------- */
+.update-bar {
+  background: #2b2610;
+  border: 1px solid var(--gold);
+  border-radius: 12px;
+  padding: 0.5rem 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  margin-top: 0.6rem;
+}
+
+.hint {
+  margin: -0.4rem 0 0;
+}
+
+.rules-panel .panel-body h3 {
+  display: block;
+}

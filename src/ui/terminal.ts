@@ -115,6 +115,25 @@ export class Terminal {
     sfx.buy();
   }
 
+  /** Το γράφημα, με την τελευταία τιμή να «κυλάει» ομαλά ανάμεσα στα ticks. */
+  drawLive() {
+    const g = this.g;
+    const s = g.s;
+    if (!s) return;
+    const series = g.series();
+    const sel = this.selected;
+    const tf = s.phase === 'trading' ? Math.max(0, Math.min(s.len, g.tickF())) : s.len;
+    const tick = Math.floor(tf);
+    const tip = s.tips.filter((x) => x.stock === sel && tick < x.from + TIP_TICKS).at(-1);
+    drawChart(this.chart, {
+      series: series[sel], now: tf, len: s.len, color: STOCKS[sel].color,
+      future: tip ? { from: tick, to: tip.from + TIP_TICKS } : null,
+      markers: s.positions.filter((q) => q.stock === sel && q.owner === g.uid).map((q) => ({ tick: q.tick, price: q.entry, side: q.side })),
+      news: visibleNews(s, tick).filter((n) => n.stock === sel || n.stock === -1).map((n) => ({ tick: Math.max(0, shownAt(s, n)), dir: n.dir })),
+      halts: s.effects.filter((e) => e.kind === 'halt' && e.stock === sel).map((e) => ({ from: e.start, to: e.start + EFFECT_LEN.halt })),
+    });
+  }
+
   /** Ανανέωση. full=true όταν άλλαξε κάτι εκτός από τον χρόνο. */
   update(full = false) {
     const g = this.g;
@@ -147,13 +166,7 @@ export class Terminal {
     ctp.textContent = `${price(p)}  ${pct(ch)}`;
     ctp.className = `ct-price ${ch >= 0 ? 'up' : 'down'}`;
     (this.el.querySelector('.chart-legend') as HTMLElement).hidden = !tip;
-    drawChart(this.chart, {
-      series: series[sel], now: tick, len: s.len, color: st.color,
-      future: tip ? { from: tick, to: tip.from + TIP_TICKS } : null,
-      markers: s.positions.filter((q) => q.stock === sel && q.owner === g.uid).map((q) => ({ tick: q.tick, price: q.entry, side: q.side })),
-      news: visibleNews(s, tick).filter((n) => n.stock === sel || n.stock === -1).map((n) => ({ tick: Math.max(0, shownAt(s, n)), dir: n.dir })),
-      halts: s.effects.filter((e) => e.kind === 'halt' && e.stock === sel).map((e) => ({ from: e.start, to: e.start + EFFECT_LEN.halt })),
-    });
+    this.drawLive();
     // ποσό και κουμπιά
     const amt = this.amount();
     this.el.querySelector('.amount-val')!.textContent = money(amt);

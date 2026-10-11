@@ -49,6 +49,13 @@
 - **Online με φίλους** από οπουδήποτε στον κόσμο, με κωδικό δωματίου ή σύνδεσμο πρόσκλησης. Chat και emotes
   πάνω από τα avatars.
 - **Χαρακτήρας** με κοστούμι, γραβάτα, μαλλιά, καπέλο και γυαλιά.
+- **Γραφείο που το φτιάχνετε εσείς**: διακοσμητικά για το γραφείο του καθενός (λάμπα, κάκτος, κύπελλο, χάλκινος
+  ταύρος…) και αναβαθμίσεις για όλη την ομάδα (επαγγελματική καφετιέρα, οθόνες ειδήσεων, καναπές, ενυδρείο…).
+  Κάποια ξεκλειδώνουν μόνιμα όταν πετύχετε κάτι.
+- **Συνέχεια αργότερα**: η παρτίδα αποθηκεύεται πριν από κάθε μέρα. Από το «Οι παρτίδες μου» τη συνεχίζετε όποτε
+  θέλετε, ακόμα και μετά από ενημέρωση του παιχνιδιού.
+- **Ρυθμίσεις παρτίδας**: διάρκεια μέρας, δυσκολία, μέρες ως το βάθρο, αρχικό κεφάλαιο, και αν το fund κλείνει
+  με τον πρώτο χαμένο στόχο ή μόνο με χρεωκοπία.
 - **Τελική σκηνή**: βάθρο με τους καλύτερους traders και κομφετί, ή ταφόπλακες. Σύνοψη με διακρίσεις,
   στατιστικά και γράφημα του ταμείου.
 - **Ελληνικά και αγγλικά** (αυτόματα από τη γλώσσα της συσκευής), σελίδα κανόνων.
@@ -76,7 +83,7 @@
 προεπιλογή είναι σταθερή κάμερα και ελαφριά γραφικά.
 
 **Ποιότητα.**
-- **28 τεστ** (Vitest), με προσομοιώσεις χιλιάδων τυχαίων κινήσεων που ελέγχουν ότι το ταμείο δεν γίνεται
+- **35 τεστ** (Vitest), με προσομοιώσεις χιλιάδων τυχαίων κινήσεων που ελέγχουν ότι το ταμείο δεν γίνεται
   ποτέ αρνητικό και ότι δεν χάνεται θέση.
 - Κατά την ανάπτυξη, **δοκιμές σε πραγματικό browser** (Playwright) με τοπικό Firebase emulator: παρτίδες
   10 παικτών, αλλαγή host στη μέση της μέρας, επανασύνδεση μετά από ανανέωση, επιστροφή στο δωμάτιο.
@@ -138,6 +145,13 @@ phone or a computer, with no install and no account.
 - **Online with friends** from anywhere in the world, via a room code or an invite link. Chat and emotes over
   the avatars.
 - **Character** with suit, tie, hair, hat and glasses.
+- **An office you build**: decorations for each player's desk (lamp, cactus, trophy, bronze bull…) and upgrades
+  for the whole team (pro espresso machine, news screens, sofa, aquarium…). Some unlock permanently as you
+  achieve things.
+- **Continue later**: the game is saved before every day. Resume it from “My games” whenever you like, even after
+  a game update.
+- **Game settings**: day length, difficulty, days to the podium, starting capital, and whether the fund closes at
+  the first missed quota or only on bankruptcy.
 - **Final scene**: a podium with the best traders and confetti, or tombstones. Summary with awards, stats and
   a balance chart.
 - **Greek and English** (automatic from the device language), rules page.
@@ -163,7 +177,7 @@ saved state. Anyone who refreshes the page rejoins the room.
 default to the fixed camera and light graphics.
 
 **Quality.**
-- **28 tests** (Vitest), with simulations of thousands of random moves checking that the balance never goes
+- **35 tests** (Vitest), with simulations of thousands of random moves checking that the balance never goes
   negative and no position is lost.
 - During development, **real-browser tests** (Playwright) against a local Firebase emulator: 10-player games, a
   host change mid-day, rejoining after a refresh, returning to the room.

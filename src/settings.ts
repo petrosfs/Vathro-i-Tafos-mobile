@@ -3,9 +3,31 @@ export interface PersonalSettings {
   lang: 'auto' | 'el' | 'en';
   view: 'first' | 'third' | 'overview';
   quality: 'low' | 'high';
+  /** Ανάλυση εικόνας: auto ή συγκεκριμένο επίπεδο. */
+  resolution: Resolution;
   sound: boolean;
   sensitivity: number;
   reduceMotion: boolean;
+}
+
+export type Resolution = 'auto' | 'low' | 'medium' | 'high' | 'ultra';
+export const RESOLUTIONS: Resolution[] = ['auto', 'low', 'medium', 'high', 'ultra'];
+
+/** Πόσα pixel της οθόνης ζωγραφίζει το παιχνίδι ανά pixel σελίδας. */
+export function pixelRatioFor(r: Resolution): number {
+  const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
+  switch (r) {
+    case 'low':
+      return 0.75;
+    case 'medium':
+      return 1;
+    case 'high':
+      return Math.min(dpr, 1.6);
+    case 'ultra':
+      return Math.min(dpr, 2.5);
+    default:
+      return Math.min(dpr, isTouch() ? 1.6 : 2);
+  }
 }
 
 const KEY = 'vathro.settings.v1';
@@ -16,6 +38,7 @@ const DEFAULTS = (): PersonalSettings => ({
   lang: 'auto',
   view: isTouch() ? 'overview' : 'first',
   quality: isTouch() ? 'low' : 'high',
+  resolution: 'auto',
   sound: true,
   sensitivity: 1,
   reduceMotion: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,

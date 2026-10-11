@@ -4,6 +4,7 @@ import {
 } from 'firebase/database';
 import type { GameConfig, Look } from '../sim/engine';
 import { connect, type Net } from './firebase';
+import { APP_VERSION } from '../version';
 import { sortedPlayers } from './players';
 
 export { sortedPlayers };
@@ -14,10 +15,19 @@ export { CODE_RE, MAX_ROOM_PLAYERS, normalizeCode, randomCode };
 
 export type RoomStatus = 'lobby' | 'playing' | 'ended';
 
+export interface ResumeInfo {
+  day: number;
+  names: string[];
+}
+
 export interface RoomMeta {
   host: string;
   status: RoomStatus;
   createdAt: number;
+  /** Έκδοση του παιχνιδιού του host (όλοι πρέπει να έχουν την ίδια). */
+  v?: string;
+  /** Συνέχεια αποθηκευμένης παρτίδας: ποια μέρα και ποιοι έπαιζαν. */
+  resume?: ResumeInfo | null;
   config: GameConfig;
 }
 
@@ -36,7 +46,7 @@ export interface RoomView {
   players: Record<string, RoomPlayer>;
 }
 
-export type RoomError = 'not-found' | 'started' | 'full' | 'bad-code' | 'network';
+export type RoomError = 'not-found' | 'started' | 'full' | 'bad-code' | 'network' | 'version';
 
 /** Ποιος γίνεται host αν ο τωρινός είναι εκτός: ο πρώτος συνδεδεμένος κατά σειρά εισόδου. */
 export function nextHost(view: RoomView): string | null {
@@ -77,11 +87,11 @@ export class Room {
     return () => (this.listeners = this.listeners.filter((l) => l !== cb));
   }
 
-  static async create(name: string, look: Look, config: GameConfig): Promise<Room> {
+  static async create(name: string, look: Look, config: GameConfig, resume: ResumeInfo | null = null): Promise<Room> {
     const net = await connect();
     for (let attempt = 0; attempt < 8; attempt++) {
       const code = randomCode();
-      const meta: RoomMeta = { host: net.uid, status: 'lobby', createdAt: Date.now(), config };
+      const meta: RoomMeta = { host: net.uid, status: 'lobby', createdAt: Date.now(), config, v: APP_VERSION, resume };
       const res = await runTransaction(ref(net.db, `rooms/${code}/meta`), (cur) => (cur === null ? meta : undefined));
       if (res.committed) {
         const room = new Room(net, code);
@@ -105,6 +115,8 @@ export class Room {
     const players = (playersSnap.val() ?? {}) as Record<string, RoomPlayer>;
     const already = !!players[net.uid];
     if (!already && meta.status !== 'lobby') throw new Error('started' satisfies RoomError);
+    // ίδια έκδοση για όλους, αλλιώς οι κανόνες μπορεί να διαφέρουν
+    if (!already && meta.v && meta.v !== APP_VERSION) throw new Error(`version:${meta.v}`);
     if (!already && Object.keys(players).length >= MAX_ROOM_PLAYERS) throw new Error('full' satisfies RoomError);
     const room = new Room(net, code);
     await room.enter(name, look, already);
@@ -166,14 +178,14 @@ export class Room {
   /** Ο host ξεκινά την παρτίδα γράφοντας την πρώτη κατάσταση. */
   async start(stateJson: string) {
     await update(ref(this.net.db, `rooms/${this.code}`), {
-      state: stateJson, actions: null, poses: null, 'meta/status': 'playing',
+      state: stateJson, actions: null, poses: null, 'meta/status': 'playing', 'meta/resume': null,
     });
   }
 
   /** Πίσω στο lobby για νέα παρτίδα με τους ίδιους φίλους. */
   async backToLobby() {
     if (!this.isHost) return;
-    await update(ref(this.net.db, `rooms/${this.code}`), { state: null, actions: null, 'meta/status': 'lobby' });
+    await update(ref(this.net.db, `rooms/${this.code}`), { state: null, actions: null, 'meta/status': 'lobby', 'meta/v': APP_VERSION });
   }
 
   async kick(uid: string) {

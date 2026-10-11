@@ -3,6 +3,8 @@ import { esc, h } from '../app';
 import { money, signed, t, tr } from '../i18n';
 import { rerollCost } from '../sim/engine';
 import { ITEM } from '../sim/items';
+import { available, MAX_DECOR, OFFICE, OFFICE_DEF, type DecorId, type OfficeId, type UpgradeId } from '../sim/office';
+import { unlockText } from './unlockText';
 import type { GameController } from '../game/controller';
 import { sfx } from '../audio';
 
@@ -38,8 +40,44 @@ export class ShopPanel {
         this.g.send({ t: 'ready', v: !me?.ready });
         sfx.click();
       } else if (act === 'force') this.onForce?.();
+      else if (act === 'decor') {
+        this.g.send({ t: 'decor', id: b.dataset.id as DecorId });
+        sfx.coin();
+      } else if (act === 'upgrade') {
+        this.g.send({ t: 'upgrade', id: b.dataset.id as UpgradeId });
+        sfx.coin();
+      }
       b.setAttribute('disabled', '');
     });
+  }
+
+  /** Γραφείο: διακοσμητικά για το δικό σου γραφείο και αναβαθμίσεις για όλη την ομάδα. */
+  private officeHtml(): string {
+    const s = this.g.s!;
+    const me = this.g.me();
+    const card = (id: OfficeId) => {
+      const d = OFFICE_DEF[id];
+      const open = available(id, s.unlocked);
+      const owned = d.kind === 'decor' ? !!me?.decor.includes(id as DecorId) : s.office.includes(id as UpgradeId);
+      const full = d.kind === 'decor' && (me?.decor.length ?? 0) >= MAX_DECOR;
+      let btn: string;
+      if (!open) btn = `<span class="lock">🔒 ${esc(unlockText(d.unlock))}</span>`;
+      else if (owned) btn = `<span class="owned">✓ ${esc(t('office.owned'))}</span>`;
+      else btn = `<button class="btn small" data-act="${d.kind}" data-id="${id}" ${s.coins >= d.price && !full ? '' : 'disabled'}>🪙 ${d.price}</button>`;
+      return `<div class="ocard ${open ? '' : 'locked'} ${owned ? 'mine' : ''}" title="${esc(tr(d.desc))}">
+        <span class="glyph">${d.glyph}</span>
+        <span class="oname"><b>${esc(tr(d.name))}</b><small>${esc(tr(d.desc))}</small></span>
+        ${btn}
+      </div>`;
+    };
+    const decor = OFFICE.filter((o) => o.kind === 'decor').map((o) => card(o.id)).join('');
+    const ups = OFFICE.filter((o) => o.kind === 'upgrade').map((o) => card(o.id)).join('');
+    return `
+      <h3>${esc(t('office.mine', { n: me?.decor.length ?? 0, max: MAX_DECOR }))}</h3>
+      <div class="ocards">${decor}</div>
+      <h3>${esc(t('office.team'))}</h3>
+      <div class="ocards">${ups}</div>
+      <p class="muted small">${esc(t('office.note'))}</p>`;
   }
 
   update(force = false) {
@@ -50,8 +88,11 @@ export class ShopPanel {
     const last = s.history.at(-1);
     let result = `<p class="lead">${esc(t('shop.firstDay'))}</p>`;
     if (last) {
-      result = `<div class="result ${last.saved ? 'saved' : 'pass'}">
-        <b>${esc(last.saved ? t('shop.saved', { d: last.day, c: last.coins }) : t('shop.pass', { d: last.day, c: last.coins }))}</b>
+      const v = { d: last.day, c: last.coins };
+      const rescued = last.saved && s.config.endRule === 'bankrupt';
+      const msg = rescued ? t('shop.rescued', v) : last.saved ? t('shop.saved', v) : last.passed ? t('shop.pass', v) : t('shop.missed', v);
+      result = `<div class="result ${last.passed && !last.saved ? 'pass' : 'saved'}">
+        <b>${esc(msg)}</b>
         <span>${esc(t('shop.profit', { p: signed(last.profit), q: money(last.quota) }))}</span>
       </div>`;
     }
@@ -83,7 +124,8 @@ export class ShopPanel {
       <div class="offers">${offers}</div>
       <button class="btn ghost" data-act="reroll" ${s.coins >= cost ? '' : 'disabled'}>↻ ${esc(t('shop.reroll', { c: `🪙 ${cost}` }))}</button>
       <h3>${esc(t('shop.inv'))}</h3><div class="pills">${inv}</div>
-      <h3>${esc(t('shop.perks'))}</h3><div class="pills">${perks}</div>`;
+      <h3>${esc(t('shop.perks'))}</h3><div class="pills">${perks}</div>
+      ${this.officeHtml()}`;
     // Ξαναζωγραφίζουμε μόνο ό,τι άλλαξε, για να μη «χάνονται» πατήματα σε κουμπιά που ξαναφτιάχνονται.
     if (body !== this.lastBody) {
       this.lastBody = body;
