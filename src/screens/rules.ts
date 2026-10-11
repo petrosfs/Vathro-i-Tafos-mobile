@@ -25,6 +25,8 @@ const BODY = {
       <li>Αν αποτύχετε, το fund κλείνει: <b>στον τάφο</b>. Αν αντέξετε όλες τις μέρες: <b>στο βάθρο</b>, με τους καλύτερους traders στα σκαλοπάτια.</li>
       <li>Με τη ρύθμιση «Μόνο με χρεωκοπία», ο χαμένος στόχος σημαίνει απλώς μηδέν νομίσματα· το fund κλείνει μόνο αν το ταμείο πέσει κάτω από ένα όριο του αρχικού κεφαλαίου (0–15%, προεπιλογή 10%, το ρυθμίζει ο host).</li>
     </ul>
+    <h3>Το κλείσιμο της αγοράς</h3>
+    <p>Στο καμπανάκι του τέλους η κάμερα πάει μακριά και βλέπετε την ομάδα: αν η μέρα πήγε καλά, πάρτι (κομφετί, σαμπάνιες, και με πολύ καλή μέρα κόσμος και χορεύτριες)· αν βγήκε ζημιά, καβγάς (χαρτοπόλεμος, κούπες, ξύλο, πιστολίδι). Όσο μεγαλύτερος ο χώρος και το ταμείο, τόσο πιο μεγάλο το γλέντι ή ο χαμός.</p>
     <h3>Ειδήσεις</h3>
     <ul>
       <li>Οι ειδήσεις εμφανίζονται στον πίνακα και στην οθόνη <b>λίγο πριν</b> κινηθεί η τιμή. Γρήγορα δάχτυλα κερδίζουν.</li>
@@ -75,6 +77,8 @@ const BODY = {
       <li>Miss it and the fund closes: <b>into the grave</b>. Survive every day: <b>onto the podium</b>, with the best traders on the steps.</li>
       <li>With the “Only when bankrupt” setting, a missed quota just means zero coins; the fund closes only if the balance drops below a threshold of the starting capital (0–15%, 10% by default, set by the host).</li>
     </ul>
+    <h3>The closing bell</h3>
+    <p>At the closing bell the camera pulls back and you watch the team: a good day means a party (confetti, champagne, and on a great day a crowd and dancers); a loss means a fight (paper balls, mugs, fists, a shootout). The bigger the premises and the balance, the bigger the party or the mayhem.</p>
     <h3>News</h3>
     <ul>
       <li>Headlines appear on the board and on screen <b>just before</b> the price moves. Fast fingers win.</li>

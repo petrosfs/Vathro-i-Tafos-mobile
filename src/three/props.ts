@@ -255,3 +255,43 @@ export function makeKourabiedes(): THREE.Group {
   }
   return g;
 }
+
+/** Φουσκωτή κούκλα (αστείο δώρο): ροζ, με μαγιό, χέρια ανοιχτά και το γνωστό «Ο» στο στόμα. */
+export function makeDoll(): THREE.Group {
+  const g = new THREE.Group();
+  const skin = '#F6B3C2';
+  const suit = '#D3263A';
+  // πόδια λίγο ανοιχτά
+  for (const sx of [-1, 1]) {
+    const leg = m(G.cyl, skin, 0.075, 0.8, 0.075, sx * 0.1, 0.42, 0);
+    leg.rotation.z = sx * 0.12;
+    g.add(leg);
+    g.add(m(G.sphere, skin, 0.08, 0.05, 0.1, sx * 0.15, 0.03, 0.03));
+  }
+  // σώμα και μαγιό
+  g.add(m(G.sphere, skin, 0.19, 0.3, 0.15, 0, 1.08, 0));
+  g.add(m(G.sphere, suit, 0.18, 0.1, 0.145, 0, 0.86, 0));
+  g.add(m(G.box, suit, 0.3, 0.1, 0.24, 0, 1.2, 0.02));
+  g.add(m(G.cyl, skin, 0.06, 0.12, 0.06, 0, 1.4, 0));
+  // χέρια ανοιχτά προς τα πάνω
+  for (const sx of [-1, 1]) {
+    const arm = m(G.cyl, skin, 0.06, 0.62, 0.06, sx * 0.33, 1.42, 0);
+    arm.rotation.z = sx * -1.0;
+    g.add(arm);
+    g.add(m(G.sphere, skin, 0.06, 0.06, 0.06, sx * 0.6, 1.62, 0));
+  }
+  // κεφάλι, ξανθά μαλλιά με κοτσιδάκια, μάτια, κόκκινο «Ο»
+  g.add(m(G.sphere, skin, 0.16, 0.18, 0.16, 0, 1.6, 0));
+  g.add(m(G.sphere, '#F2D16B', 0.17, 0.12, 0.17, 0, 1.69, -0.02));
+  for (const sx of [-1, 1]) {
+    g.add(m(G.sphere, '#F2D16B', 0.06, 0.13, 0.06, sx * 0.19, 1.55, -0.03));
+    g.add(m(G.sphere, '#FFFFFF', 0.035, 0.03, 0.02, sx * 0.06, 1.63, 0.145));
+    g.add(m(G.sphere, '#1B3B8C', 0.018, 0.018, 0.01, sx * 0.06, 1.63, 0.16));
+  }
+  const mouth = m(G.handle, suit, 0.035, 0.035, 0.035, 0, 1.53, 0.155);
+  g.add(mouth);
+  const mouth2 = m(G.handle, suit, 0.035, 0.035, 0.035, 0, 1.53, 0.155);
+  mouth2.rotation.z = Math.PI;
+  g.add(mouth2);
+  return g;
+}

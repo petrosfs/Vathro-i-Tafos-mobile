@@ -22,6 +22,7 @@ import { loadProgress, recordProgress } from '../game/progress';
 import { OFFICE_DEF } from '../sim/office';
 import { APP_VERSION } from '../version';
 import { Tutorial } from '../ui/tutorial';
+import { eodLevel, eodMood } from '../three/eodScene';
 import { VENUE_NAMES } from '../ui/venueText';
 
 export interface GameScreenOpts {
@@ -63,6 +64,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           <div class="headline" hidden></div>
           <div class="warn-banner" hidden></div>
           <div class="center-msg" hidden></div>
+          <div class="eod-caption" hidden></div>
           <button class="interact" hidden></button>
           <p class="fp-hint" hidden></p>
           <nav class="hud-bottom">
@@ -101,6 +103,8 @@ export function gameScreen(opts: GameScreenOpts): Screen {
 
     function openPanel(k: PanelKind, desk: number | null = null) {
       if (k === 'shop' && g.s?.phase !== 'shop') return;
+      // στο κλείσιμο της αγοράς παίζει το πάρτι/ο καβγάς: τα πάνελ περιμένουν
+      if (world.eodPlaying && k !== 'menu') return;
       closePanel(false);
       openedAt = performance.now();
       panel = k;
@@ -278,7 +282,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           }
         }
         for (const l of s.log) {
-          if (l.n > lastLogN && l.who !== g.uid && l.kind === 'item' && l.item && ['pump', 'dump', 'halt', 'coffee', 'tip', 'scoop'].includes(l.item)) {
+          if (l.n > lastLogN && l.who !== g.uid && l.kind === 'item' && l.item && ['pump', 'dump', 'halt', 'coffee', 'tip', 'scoop', 'honey'].includes(l.item)) {
             toast(`${ITEM[l.item].glyph} ${g.name(l.who)}: ${tr(ITEM[l.item].name)}${l.stock !== undefined ? ` · ${STOCKS[l.stock].ticker}` : ''}`);
           }
         }
@@ -293,12 +297,24 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           shownNews.clear();
         } else if (s.phase === 'shop') {
           const r = s.history.at(-1);
-          if (r) {
+          if (r && prev.phase === 'trading') {
+            // κλείσιμο της αγοράς: ~7″ πάρτι ή καβγάς από μακριά, μετά το κατάστημα
             sfx.bell();
-            setTimeout(() => (r.saved ? sfx.loss() : sfx.win()), 900);
-            world.celebrate(3000);
-          }
-          if (panel !== 'chat') openPanel('shop');
+            const mood = eodMood(r.profit, r.quota, r.passed && !r.saved);
+            const level = eodLevel(s.venue ?? 0, s.cash, s.config.startCash);
+            setTimeout(() => (mood === 'bad' ? sfx.lose() : mood === 'meh' ? sfx.loss() : sfx.win()), 900);
+            if (panel) closePanel(false);
+            el.classList.add('eod');
+            const cap = $('.eod-caption');
+            cap.textContent = t(`eod.${mood}.${level}` as Parameters<typeof t>[0]);
+            cap.hidden = false;
+            world.onEodEnd = () => {
+              el.classList.remove('eod');
+              cap.hidden = true;
+              if (!panel && g.s?.phase === 'shop') openPanel('shop');
+            };
+            world.playEod({ mood, level, seed: s.seed + s.day * 7919 });
+          } else if (panel !== 'chat') openPanel('shop');
         }
       }
       if (s.phase === 'ended' && !ended) {

@@ -4,7 +4,7 @@
 import type { DayCtx, Difficulty, Effect, StockEvent } from './market';
 import { firstOpens } from './market';
 import {
-  COFFEE_MAX, COFFEE_TICKS, INTEREST, INVENTORY_SLOTS, ITEM, ITEMS, LOAN_COST, LOAN_SHARE,
+  COFFEE_MAX, COFFEE_TICKS, HONEY_HEAT, INTEREST, INVENTORY_SLOTS, ITEM, ITEMS, LOAN_COST, LOAN_SHARE,
   SHOP_OFFERS, STOP_LOSS, type ConsumableId, type ItemId, type PerkId,
 } from './items';
 import { hash, stream, uniform } from './rng';
@@ -88,7 +88,7 @@ export function secChance(s: GameState): number {
   return Math.min(0.85, (s.config.difficulty === 'hard' ? 0.1 : 0) + (s.heat ?? 0) / 100);
 }
 /** Αντικείμενα που απαγορεύονται όσο ερευνά η Επιτροπή. */
-export const SEC_BANNED: ConsumableId[] = ['tip', 'pump', 'dump', 'scoop'];
+export const SEC_BANNED: ConsumableId[] = ['tip', 'pump', 'dump', 'scoop', 'honey'];
 
 export const isHired = (p: PlayerState | undefined) => p?.bot?.kind === 'team' || p?.bot?.kind === 'slave';
 
@@ -225,6 +225,8 @@ export interface GameState {
   effects: Effect[];
   tips: Tip[];
   scoops: Scoop[];
+  /** «Απόσπαση πληροφορίας»: όλες οι σημερινές ειδήσεις μιας μετοχής. */
+  honey: Tip[];
   players: Record<string, PlayerState>;
   order: string[];
   offers: (ItemId | null)[];
@@ -368,7 +370,7 @@ export function createGame(
   const s: GameState = {
     rev: 0, seed, config, phase: 'shop', day: 1, startAt: 0, len: config.dayLen, coffee: 0,
     opens: firstOpens(), cash: config.startCash, debt: 0, dayStartEquity: config.startCash, quota: 0,
-    coins: START_COINS, perks: [], positions: [], effects: [], tips: [], scoops: [], players: {},
+    coins: START_COINS, perks: [], positions: [], effects: [], tips: [], scoops: [], honey: [], players: {},
     order: players.map((p) => p.uid), offers: [], rerolls: 0, history: [], log: [], result: null,
     checked: 0, nextId: 1, logN: 0, schema: SCHEMA, office: [], heat: 0, sec: false, insider: 0, venue: 0,
     listed: startListed(seed), born: {}, events: [], gone: [], nextIpo: 3 + (hash(seed, 9900) % 2),
@@ -586,6 +588,10 @@ export function applyAction(s: GameState, uid: string, a: Action, prices: Prices
         }
         case 'scoop':
           s.scoops.push({ from: a.tick, by: uid });
+          break;
+        case 'honey':
+          s.honey = [...(s.honey ?? []), { stock: a.stock!, from: a.tick, by: uid }];
+          s.heat = Math.min(100, (s.heat ?? 0) + HONEY_HEAT);
           break;
       }
       pl.inv.splice(a.slot, 1);
@@ -905,6 +911,7 @@ export function endDay(s: GameState, prices: Prices): DayResult {
   s.effects = [];
   s.tips = [];
   s.scoops = [];
+  s.honey = [];
   for (const u of s.order) if (s.players[u]) s.players[u].lev = false;
   const over = bankruptRule ? bankrupt : !passed && !saved;
   if (over) {

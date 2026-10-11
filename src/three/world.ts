@@ -3,9 +3,10 @@ import * as THREE from 'three';
 import type { Look } from '../sim/engine';
 import type { Pose } from '../net/transport';
 import { Avatar, mat, PLAYER_COLORS } from './avatar';
-import { animateAquarium, DECOR_SPOTS, makeAquarium, makeDecor, makeKourabiedes, makeProEspresso, makeSofa } from './props';
+import { animateAquarium, DECOR_SPOTS, makeAquarium, makeDecor, makeDoll, makeKourabiedes, makeProEspresso, makeSofa } from './props';
 import { Tiger } from './tiger';
 import { buildVenue, type VenueBuild } from './venue';
+import { EodScene, type EodSpec } from './eodScene';
 import type { DecorId, UpgradeId } from '../sim/office';
 import { FirstPerson, collide } from './controls';
 import { buildOffice, MAX_DESK_SCREENS, ROOM, SCREEN_LAYOUT, type Interactable, type Office } from './office';
@@ -64,6 +65,8 @@ export class World {
   private venue: VenueBuild | null = null;
   private venueLevel = -1;
   private screensKey = '';
+  private eod: EodScene | null = null;
+  onEodEnd: () => void = () => {};
   private aquarium: THREE.Group | null = null;
   private tiger: Tiger | null = null;
   private petSeed = 1;
@@ -343,6 +346,7 @@ export class World {
       }
       if (id === 'sofa') this.office.colliders.push({ minX: -9.2, maxX: -6.8, minZ: 6.0, maxZ: 8 });
       if (id === 'aquarium') this.office.colliders.push({ minX: 11.0, maxX: 12, minZ: 4.5, maxZ: 6.5 });
+      if (id === 'doll') this.office.colliders.push({ minX: ROOM.minX + 0.3, maxX: ROOM.minX + 1.1, minZ: -3.6, maxZ: -2.8 });
     }
     const gold = ids.includes('goldbell');
     this.office.bell.scale.setScalar(gold ? 1.35 : 1);
@@ -398,6 +402,14 @@ export class World {
       }
       case 'goldbell':
         break;
+      case 'doll': {
+        // στη γωνία δίπλα στον καφέ, να κοιτάζει τα γραφεία
+        const d = makeDoll();
+        d.position.set(ROOM.minX + 0.7, 0, -3.2);
+        d.rotation.y = Math.PI / 2;
+        g.add(d);
+        break;
+      }
       case 'kourabie': {
         // πιατέλα πάνω στον πάγκο του καφέ, δίπλα στις κούπες
         const k = makeKourabiedes();
@@ -429,8 +441,55 @@ export class World {
     this.raf = requestAnimationFrame(loop);
   }
 
+  /** Το κλείσιμο της αγοράς: πάρτι ή καβγάς, για όλους όσοι είναι στο γραφείο. */
+  playEod(spec: EodSpec, ms = 7000) {
+    if (this.ending || this.eod) return;
+    this.fp?.setEnabled(false);
+    const list = [...this.avatars.values()];
+    this.syncCeilingFor(true);
+    this.eod = new EodScene(this.scene, list, spec, this.office.deskPos, ms);
+  }
+
+  get eodPlaying() {
+    return !!this.eod;
+  }
+
+  private endEod() {
+    this.eod?.dispose();
+    this.eod = null;
+    // όλοι πίσω στις θέσεις τους (στο επόμενο καρέ)
+    for (const [uid, a] of this.avatars) {
+      const pl = this.players.get(uid);
+      const seat = this.office.seats[pl?.desk ?? 0];
+      if (seat) {
+        a.group.position.set(seat.x, 0, seat.z);
+        a.group.rotation.set(0, seat.ry, 0);
+      }
+      a.anim = 'sit';
+    }
+    this.avatars.get(this.myUid)?.setVisible(this.view !== 'first');
+    this.avatars.get(this.myUid)?.showTag(false);
+    this.syncCeilingFor(false);
+    this.fp?.setEnabled(!this.uiOpen);
+    this.onEodEnd();
+  }
+
+  private syncCeilingFor(eod: boolean) {
+    if (this.venue) this.venue.ceiling.visible = eod || this.view !== 'overview' || !!this.ending;
+  }
+
   private frame(dt: number, now: number) {
     const wall = Date.now();
+    if (this.eod) {
+      const done = this.eod.update(dt);
+      if (this.aquarium) animateAquarium(this.aquarium, now / 1000);
+      if (this.tiger) this.tiger.update(Date.now());
+      this.eod.camera(this.camera);
+      this.onFrame(dt);
+      this.renderer.render(this.scene, this.camera);
+      if (done) this.endEod();
+      return;
+    }
     if (this.fp && !this.ending) this.fp.update(dt, this.office.colliders);
     for (const [uid, a] of this.avatars) {
       if (this.ending) {

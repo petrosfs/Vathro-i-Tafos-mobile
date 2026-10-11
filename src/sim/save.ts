@@ -23,7 +23,7 @@ export function migrateState(raw: unknown): GameState {
     s.listed = [0, 1, 2, 3, 4, 5, 6, 7];
     s.nextIpo = (Number(r.day) || 1) + 2;
   }
-  for (const k of ['events', 'gone'] as const) if (!Array.isArray(s[k])) s[k] = [];
+  for (const k of ['events', 'gone', 'honey'] as const) if (!Array.isArray(s[k])) s[k] = [];
   if (!s.born || typeof s.born !== 'object') s.born = {};
   s.opens = base.opens.map((v, i) => (Number.isFinite(s.opens[i]) ? s.opens[i] : v));
   s.players = { ...(r.players ?? {}) };

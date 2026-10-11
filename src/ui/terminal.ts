@@ -6,7 +6,7 @@ import { EFFECT_LEN } from '../sim/market';
 import { STOCKS } from '../sim/stocks';
 import { screensOf } from '../sim/engine';
 import type { GameController } from '../game/controller';
-import { crashIn, headline, scoopedNews, shownAt, visibleNews } from '../game/news';
+import { crashIn, headline, honeyNews, scoopedNews, shownAt, visibleNews } from '../game/news';
 import { drawChart, drawSpark } from './chart';
 import { logLine } from './logLine';
 import { sfx } from '../audio';
@@ -324,6 +324,10 @@ export class Terminal {
     if (crash !== null) parts.push(`<div class="news-line warn">⚠ ${esc(t('news.crash', { s: crash }))}</div>`);
     for (const n of upcoming) {
       parts.push(`<div class="news-line future">📰 <b>${esc(t('news.scoop', { s: Math.max(0, Math.ceil((shownAt(s, n) - tick) / 2)) }))}</b> ${esc(headline(n))}</div>`);
+    }
+    for (const n of honeyNews(s, tick)) {
+      const truth = n.rumor ? ` <i>(${esc(t(n.real === n.dir ? 'news.rumorTrue' : 'news.rumorFalse'))})</i>` : '';
+      parts.push(`<div class="news-line future">💋 <b>${esc(t('news.scoop', { s: Math.max(0, Math.ceil((shownAt(s, n) - tick) / 2)) }))}</b> ${esc(STOCKS[n.stock].ticker)} · ${esc(headline(n))}${truth}</div>`);
     }
     for (const n of seen) {
       const cls = n.crash ? 'down' : n.rumor ? 'rumor' : n.dir > 0 ? 'up' : 'down';

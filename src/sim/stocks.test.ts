@@ -100,3 +100,11 @@ describe('χρηματιστήριο που αλλάζει', () => {
     expect(m.events).toEqual([]);
   });
 });
+
+describe('κατάλογος', () => {
+  it('κάθε εταιρεία έχει δικούς της τίτλους ειδήσεων και μοναδικό σύμβολο', async () => {
+    const { SPECIFIC } = await import('./headlines');
+    expect(SPECIFIC.length).toBe(STOCKS.length);
+    expect(new Set(STOCKS.map((s) => s.ticker)).size).toBe(STOCKS.length);
+  });
+});

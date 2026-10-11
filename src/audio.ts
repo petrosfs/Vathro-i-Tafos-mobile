@@ -31,7 +31,41 @@ function tone(freq: number, dur: number, type: OscillatorType = 'sine', vol = 0.
   o.stop(t0 + dur + 0.05);
 }
 
+/** Θόρυβος (για πυροβολισμούς, φελλούς, χτυπήματα). */
+function noise(dur: number, vol = 0.2, lowpass = 1800, delay = 0) {
+  const a = ac();
+  if (!a) return;
+  const t0 = a.currentTime + delay;
+  const n = Math.floor(a.sampleRate * dur);
+  const buf = a.createBuffer(1, n, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+  const src = a.createBufferSource();
+  src.buffer = buf;
+  const f = a.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.value = lowpass;
+  const g = a.createGain();
+  g.gain.value = vol;
+  src.connect(f).connect(g).connect(a.destination);
+  src.start(t0);
+}
+
 export const sfx = {
+  /** «Μπαμ» (καρτουνίστικο). */
+  bang() {
+    noise(0.25, 0.22, 1400);
+    tone(90, 0.15, 'sine', 0.12, 0, -40);
+  },
+  /** Φελλός σαμπάνιας. */
+  pop() {
+    tone(500, 0.08, 'sine', 0.15, 0, 900);
+    noise(0.3, 0.05, 5000, 0.05);
+  },
+  /** Κάτι που πετάχτηκε και έπεσε. */
+  thud() {
+    noise(0.12, 0.12, 600);
+  },
   /** Το καμπανάκι της αγοράς. */
   bell() {
     for (let i = 0; i < 3; i++) {

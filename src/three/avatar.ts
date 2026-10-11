@@ -81,7 +81,9 @@ function part(g: THREE.BufferGeometry, color: string, sx = 1, sy = 1, sz = 1, x 
   return m;
 }
 
-export type Anim = 'idle' | 'walk' | 'sit' | 'cheer' | 'fall' | 'podium';
+export type Anim =
+  | 'idle' | 'walk' | 'sit' | 'cheer' | 'fall' | 'podium'
+  | 'dance' | 'throw' | 'punch' | 'shoot' | 'sad' | 'drink';
 
 interface Pose {
   bodyY: number;
@@ -131,6 +133,12 @@ export class Avatar {
   private cur: Pose = { ...ZERO };
   private blinkAt = 2 + Math.random() * 3;
   private eyes: THREE.Object3D[] = [];
+  private handR: THREE.Group | null = null;
+  private held: THREE.Object3D | null = null;
+  /** Χρόνος (s) για τις κινήσεις με κύκλο (ρίψη, γροθιά, πυροβολισμός). */
+  get cycle() {
+    return this.phase;
+  }
 
   constructor(look: Look, name: string, readonly color: string) {
     const suit = SUITS[look.suit] ?? SUITS[0];
@@ -193,6 +201,7 @@ export class Avatar {
       thumb.rotation.z = sx * 0.6;
       hand.add(thumb);
       el.add(hand);
+      if (sx === 1) this.handR = hand;
       sh.add(el);
       this.spine.add(sh);
     }
@@ -291,6 +300,18 @@ export class Avatar {
     }
   }
 
+  /** Κάτι στο δεξί χέρι (μπουκάλι, όπλο…) ή τίποτα. */
+  hold(obj: THREE.Object3D | null) {
+    if (this.held) this.held.removeFromParent();
+    this.held = obj;
+    if (obj && this.handR) this.handR.add(obj);
+  }
+
+  /** Η θέση του δεξιού χεριού στον κόσμο (για ό,τι πετάει ή πυροβολεί). */
+  handWorld(out = new THREE.Vector3()): THREE.Vector3 {
+    return this.handR ? this.handR.getWorldPosition(out) : this.group.getWorldPosition(out).setY(1.3);
+  }
+
   setVisible(v: boolean) {
     this.group.visible = v;
   }
@@ -371,6 +392,84 @@ export class Avatar {
         t.elbowR = -0.3;
         t.bodyY = Math.abs(s) * (this.anim === 'cheer' ? 0.1 : 0.05);
         t.headX = -0.15;
+        break;
+      }
+      case 'dance': {
+        const s = Math.sin(p * 7);
+        const c = Math.cos(p * 3.5);
+        t.bodyY = Math.abs(s) * 0.08;
+        t.spine = c * 0.35;
+        t.thighL = Math.max(0, s) * 0.5;
+        t.thighR = Math.max(0, -s) * 0.5;
+        t.kneeL = Math.max(0, s) * 0.7;
+        t.kneeR = Math.max(0, -s) * 0.7;
+        t.shoulderLz = -1.6 - s * 0.9;
+        t.shoulderRz = 1.6 - s * 0.9;
+        t.elbowL = -0.6;
+        t.elbowR = -0.6;
+        t.headY = c * 0.3;
+        t.headX = -0.1;
+        break;
+      }
+      case 'throw': {
+        // κύκλος 1,2″: σήκωμα πίσω, ρίψη μπροστά
+        const k = (p % 1.2) / 1.2;
+        t.shoulderRx = k < 0.6 ? -3.0 * (k / 0.6) : -3.0 + (k - 0.6) / 0.4 * 2.2;
+        t.elbowR = k < 0.6 ? -1.2 : -0.2;
+        t.shoulderLz = -0.5;
+        t.spine = k < 0.6 ? 0.35 : -0.25;
+        t.thighL = -0.3;
+        t.headX = -0.05;
+        break;
+      }
+      case 'punch': {
+        const k = (p % 0.7) / 0.7;
+        const right = Math.floor(p / 0.7) % 2 === 0;
+        const jab = k < 0.35 ? k / 0.35 : 1 - (k - 0.35) / 0.65;
+        t.shoulderRx = -1.0 - (right ? jab * 0.6 : 0);
+        t.shoulderLx = -1.0 - (right ? 0 : jab * 0.6);
+        t.elbowR = right ? -1.8 + jab * 1.7 : -1.8;
+        t.elbowL = right ? -1.8 : -1.8 + jab * 1.7;
+        t.spine = right ? -0.25 * jab : 0.25 * jab;
+        t.bodyY = -0.05 + Math.abs(Math.sin(p * 9)) * 0.03;
+        t.kneeL = 0.25;
+        t.kneeR = 0.25;
+        t.thighL = -0.2;
+        t.thighR = 0.1;
+        break;
+      }
+      case 'shoot': {
+        // χέρι τεντωμένο μπροστά, μικρή ανάκρουση κάθε 0,6″
+        const k = (p % 0.6) / 0.6;
+        const kick = k < 0.15 ? 1 - k / 0.15 : 0;
+        t.shoulderRx = -1.5 - kick * 0.35;
+        t.elbowR = 0;
+        t.shoulderLx = -1.3;
+        t.shoulderLz = 0.45;
+        t.elbowL = -0.6;
+        t.headX = 0.05;
+        t.spine = -0.1;
+        t.kneeL = 0.15;
+        t.kneeR = 0.15;
+        break;
+      }
+      case 'sad':
+        t.headX = 0.55;
+        t.headY = Math.sin(p * 0.5) * 0.15;
+        t.shoulderLz = -0.02;
+        t.shoulderRz = 0.02;
+        t.shoulderLx = 0.1;
+        t.shoulderRx = 0.1;
+        t.bodyY = -0.03;
+        break;
+      case 'drink': {
+        const s = Math.sin(p * 4);
+        t.shoulderRx = -2.4;
+        t.elbowR = -1.5;
+        t.shoulderLz = -2.5 - s * 0.3;
+        t.elbowL = -0.3;
+        t.headX = -0.35;
+        t.bodyY = Math.abs(s) * 0.05;
         break;
       }
       case 'fall':

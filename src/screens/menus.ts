@@ -35,6 +35,10 @@ export const homeScreen: Screen = (root) => {
       <div class="menu-btns">
         <button class="btn primary big" data-go="solo">${esc(t('home.solo'))}</button>
         <button class="btn primary big" data-go="online">${esc(t('home.online'))}</button>
+        <button class="btn ghost big roles-soon" disabled aria-disabled="true" title="${esc(t('home.rolesDesc'))}">
+          🎭 ${esc(t('home.roles'))} <span class="loading-dots"><i></i><i></i><i></i></span>
+          <small>${esc(t('home.rolesDesc'))}</small>
+        </button>
         ${last ? `<button class="btn ghost" data-go="last">${esc(t('home.continue', { code: last }))}</button>` : ''}
         ${loadSaves().length ? `<button class="btn ghost" data-go="saves">💾 ${esc(t('home.saves'))}</button>` : ''}
         <div class="row">

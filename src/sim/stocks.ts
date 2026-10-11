@@ -47,6 +47,17 @@ export const STOCKS: StockDef[] = [
   { ticker: 'BUBL', name: { el: 'Bubble Wrap Holdings', en: 'Bubble Wrap Holdings' }, base: 12, vol: 0.0070, color: '#F48FB1', beta: 1.0, era: 'global' },
   { ticker: 'HYPZ', name: { el: 'Hyperloop Pizza', en: 'Hyperloop Pizza' }, base: 44, vol: 0.0050, color: '#FFD54F', beta: 0.9, era: 'global' },
   { ticker: 'YETI', name: { el: 'Yeti Logistics', en: 'Yeti Logistics' }, base: 72, vol: 0.0036, color: '#E0E0E0', beta: 0.7, era: 'global' },
+  // προσθήκες (στο τέλος, για να μην αλλάζουν οι αριθμοί των παλιών σε αποθηκευμένες παρτίδες)
+  { ticker: 'VRNK', name: { el: 'Βερνίκια Βαφής Α.Ε.', en: 'Varnish Paints S.A.' }, base: 16, vol: 0.0044, color: '#B5835A', beta: 0.6, era: 'local' },
+  { ticker: 'ZARI', name: { el: 'Ζαριά Bet', en: 'Zaria Bet' }, base: 24, vol: 0.0066, color: '#43A047', beta: 0.8, era: 'local' },
+  { ticker: 'AIGP', name: { el: 'Πετρέλαια Αιγαίου', en: 'Aegean Petroleum' }, base: 52, vol: 0.0040, color: '#37474F', beta: 0.9, era: 'local' },
+  { ticker: 'KPTN', name: { el: 'Ναυτιλιακή Καπετάν Γιώργης', en: 'Captain George Shipping' }, base: 38, vol: 0.0038, color: '#1E88E5', beta: 0.8, era: 'local' },
+  { ticker: 'IASO', name: { el: 'Φαρμακευτική Ιασώ', en: 'Iaso Pharmaceuticals' }, base: 61, vol: 0.0036, color: '#26A69A', beta: 0.5, era: 'local' },
+  { ticker: 'FRAS', name: { el: 'FARIAS Tequila', en: 'FARIAS Tequila' }, base: 47, vol: 0.0054, color: '#C0CA33', beta: 0.8, era: 'global' },
+  { ticker: 'PILL', name: { el: 'PillPal Pharma', en: 'PillPal Pharma' }, base: 118, vol: 0.0042, color: '#80DEEA', beta: 0.6, era: 'global' },
+  { ticker: 'LUCK', name: { el: 'Lucky 777 Casinos', en: 'Lucky 777 Casinos' }, base: 33, vol: 0.0062, color: '#FFCA28', beta: 0.9, era: 'global' },
+  { ticker: 'BOOM', name: { el: 'Boomstick Defense', en: 'Boomstick Defense' }, base: 175, vol: 0.0034, color: '#8D6E63', beta: 0.5, era: 'global' },
+  { ticker: 'BLKG', name: { el: 'Black Gold Petroleum', en: 'Black Gold Petroleum' }, base: 82, vol: 0.0040, color: '#212121', beta: 1.0, era: 'global' },
 ];
 
 /** Όλες οι εταιρείες που μπορεί να εμφανιστούν σε μια παρτίδα (όχι όλες μαζί). */

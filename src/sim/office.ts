@@ -5,7 +5,7 @@
 import type { Tr } from './stocks';
 
 export type DecorId = 'lamp' | 'cactus' | 'bonsai' | 'trophy' | 'lava' | 'frame' | 'globe' | 'bull' | 'goldfish' | 'duck';
-export type UpgradeId = 'espresso' | 'screens' | 'goldbell' | 'aquarium' | 'sofa' | 'neon' | 'kourabie' | 'tiger' | 'bonuspool' | 'lawyer';
+export type UpgradeId = 'espresso' | 'screens' | 'goldbell' | 'aquarium' | 'sofa' | 'neon' | 'kourabie' | 'tiger' | 'bonuspool' | 'lawyer' | 'doll';
 export type OfficeId = DecorId | UpgradeId;
 
 /** Πότε ξεκλειδώνει κάτι: φτάνοντας σε μέρα, ανεβαίνοντας στο βάθρο, ή με κέρδος σε μία παρτίδα. */
@@ -46,6 +46,9 @@ export const OFFICE: OfficeDef[] = [
     name: { el: 'Επαγγελματική καφετιέρα', en: 'Pro espresso machine' }, desc: { el: 'Κάθε μέρα κρατάει 30 δευτερόλεπτα περισσότερο.', en: 'Every day lasts 30 seconds longer.' } },
   { id: 'bonuspool', kind: 'upgrade', price: 6, glyph: '💰', unlock: null,
     name: { el: 'Bonus pool', en: 'Bonus pool' }, desc: { el: '+1% στο bonus όλων.', en: '+1% on everyone’s bonus.' } },
+  { id: 'doll', kind: 'upgrade', price: 3, glyph: '🎈', unlock: null,
+    name: { el: 'Φουσκωτή κούκλα', en: 'Inflatable doll' },
+    desc: { el: 'Η πιο πιστή υπάλληλος του fund: δεν παραπονιέται, δεν ζητάει bonus, δεν μιλάει στην Επιτροπή.', en: 'The fund’s most loyal employee: never complains, never asks for a bonus, never talks to the Commission.' } },
   { id: 'lawyer', kind: 'upgrade', price: 5, glyph: '⚖', unlock: null,
     name: { el: 'Δικηγόρος του fund', en: 'Fund lawyer' },
     desc: { el: 'Μισές υποψίες και μισό πρόστιμο από την Επιτροπή Κεφαλαιαγοράς.', en: 'Half the suspicion and half the fine from the Securities Commission.' } },

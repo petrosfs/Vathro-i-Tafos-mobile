@@ -61,6 +61,13 @@ export function scoopedNews(s: GameState, tick: number): NewsEvent[] {
   return [...out.values()].filter((n) => shownAt(s, n) > tick).sort((a, b) => a.tick - b.tick);
 }
 
+/** Ειδήσεις που αποκάλυψε η «απόσπαση πληροφορίας» και δεν έχουν βγει ακόμα. */
+export function honeyNews(s: GameState, tick: number): NewsEvent[] {
+  const stocks = new Set((s.honey ?? []).map((h) => h.stock));
+  if (!stocks.size) return [];
+  return newsOf(s).filter((n) => stocks.has(n.stock) && shownAt(s, n) > tick);
+}
+
 /** Δευτερόλεπτα ως το κραχ, αν το ραντάρ το έχει πιάσει. */
 export function crashIn(s: GameState, tick: number): number | null {
   if (!s.perks.includes('radar')) return null;

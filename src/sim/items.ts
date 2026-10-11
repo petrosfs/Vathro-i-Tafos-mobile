@@ -3,7 +3,7 @@ import type { Tr } from './stocks';
 // Αντικείμενα καταστήματος. Τα «αναλώσιμα» τα κρατάει όποιος τα αγοράζει (ως 4) και τα χρησιμοποιεί
 // στη διάρκεια της μέρας· τα «προνόμια» ισχύουν για όλη την ομάδα μέχρι το τέλος της παρτίδας.
 
-export type ConsumableId = 'tip' | 'pump' | 'dump' | 'halt' | 'coffee' | 'lev' | 'loan' | 'scoop';
+export type ConsumableId = 'tip' | 'pump' | 'dump' | 'halt' | 'coffee' | 'lev' | 'loan' | 'scoop' | 'honey';
 export type PerkId = 'short' | 'fees' | 'stop' | 'interest' | 'piggy' | 'radar' | 'wire' | 'parachute' | 'mentor';
 export type ItemId = ConsumableId | PerkId;
 
@@ -63,6 +63,14 @@ export const ITEMS: ItemDef[] = [
     desc: { el: 'Δείχνει στην ομάδα τις 3 επόμενες ειδήσεις και πότε θα βγουν.', en: 'Shows the team the next 3 headlines and when they hit.' },
   },
   {
+    id: 'honey', kind: 'consumable', price: 4, needsStock: true, weight: 5, glyph: '💋',
+    name: { el: 'Απόσπαση πληροφορίας μέσω ερωτικών συνευρέσεων', en: 'Pillow-talk intelligence' },
+    desc: {
+      el: 'Μια «στενή γνωριμία» με στέλεχος της εταιρείας λύνει γλώσσες: η ομάδα βλέπει όλες τις σημερινές ειδήσεις της μετοχής πριν βγουν, και αν οι φήμες είναι αληθινές. +20% υποψίες της Επιτροπής.',
+      en: 'A “close acquaintance” with an executive loosens tongues: the team sees all of today’s headlines for the stock before they land, and whether the rumours are true. +20% Commission suspicion.',
+    },
+  },
+  {
     id: 'short', kind: 'perk', price: 5, needsStock: false, weight: 6, glyph: '⇅',
     name: { el: 'Άδεια ανοιχτών πωλήσεων', en: 'Short-selling licence' },
     desc: { el: 'Η ομάδα μπορεί να ποντάρει και σε πτώση (short).', en: 'The team can bet on prices falling (short).' },
@@ -117,6 +125,8 @@ export const COFFEE_TICKS = 60;
 export const COFFEE_MAX = 180;
 export const TIP_TICKS = 40;
 export const SCOOP_COUNT = 3;
+/** Υποψίες της Επιτροπής από την «απόσπαση πληροφορίας». */
+export const HONEY_HEAT = 20;
 export const RADAR_TICKS = 30;
 export const WIRE_TICKS = 20;
 export const STOP_LOSS = 0.08;

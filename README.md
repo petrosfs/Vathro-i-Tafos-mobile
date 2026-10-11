@@ -42,7 +42,7 @@
 - **3D γραφείο** με γραφεία, οθόνες, μεγάλο πίνακα τιμών και μηχάνημα καταστήματος. Τρεις κάμερες, από τις
   ρυθμίσεις: **πρώτο πρόσωπο**, **τρίτο πρόσωπο** (περπατάς με WASD/ποντίκι ή joystick στο κινητό, E για
   τερματικό, Q για κατάστημα, Esc για μενού) ή **σταθερή από ψηλά**.
-- **Χρηματιστήριο που αλλάζει**: ξεκινάτε με 5 φανταστικές μετοχές και φτάνετε ως 12 από έναν κατάλογο 24.
+- **Χρηματιστήριο που αλλάζει**: ξεκινάτε με 5 φανταστικές μετοχές και φτάνετε ως 12 από έναν κατάλογο 34.
   **Νέες εισαγωγές (IPO)** με hint την προηγούμενη μέρα και πιθανό «πυρετό», **χρεωκοπίες** με ανησυχητικές
   ειδήσεις πριν, μετοχές που ωριμάζουν, τοπικές εταιρείες στην αρχή και διεθνείς από τη Wall Street και πάνω.
   Ειδήσεις λίγο πριν κινηθεί η τιμή, **φήμες** που μπορεί να βγουν ανάποδα, και **κραχ**.
@@ -57,7 +57,9 @@
 - **Επιτροπή Κεφαλαιαγοράς**: οι υποψίες ανεβαίνουν με τα ύποπτα κόλπα και τα υπερβολικά κέρδη· μια μέρα
   έρχεται έρευνα με απαγορεύσεις και πρόστιμο.
 - **Οδηγός πρώτης μέρας** που ο καθένας μπορεί να παραλείψει.
-- **17 αντικείμενα**: εσωτερική πληροφορία, φήμη στα social, πανικός στο φόρουμ, αναστολή διαπραγμάτευσης,
+- **Κλείσιμο της αγοράς** με animation: πάρτι ή καβγάς, ανάλογα με τη μέρα, τον χώρο και τα λεφτά.
+- Σύντομα: **παρτίδα με ρόλους** (π.χ. αυτός που βρίσκει funds).
+- **18 αντικείμενα**: εσωτερική πληροφορία, φήμη στα social, πανικός στο φόρουμ, αναστολή διαπραγμάτευσης,
   μόχλευση ×3, δάνειο-εξπρές, καφές για παράταση, άδεια για short, stop-loss, χρυσό αλεξίπτωτο κ.ά.
 - **Online με φίλους** από οπουδήποτε στον κόσμο, με κωδικό δωματίου ή σύνδεσμο πρόσκλησης. Chat και emotes
   πάνω από τα avatars.
@@ -96,7 +98,7 @@
 προεπιλογή είναι σταθερή κάμερα και ελαφριά γραφικά.
 
 **Ποιότητα.**
-- **64 τεστ** (Vitest), με προσομοιώσεις χιλιάδων τυχαίων κινήσεων που ελέγχουν ότι το ταμείο δεν γίνεται
+- **65 τεστ** (Vitest), με προσομοιώσεις χιλιάδων τυχαίων κινήσεων που ελέγχουν ότι το ταμείο δεν γίνεται
   ποτέ αρνητικό και ότι δεν χάνεται θέση.
 - Κατά την ανάπτυξη, **δοκιμές σε πραγματικό browser** (Playwright) με τοπικό Firebase emulator: παρτίδες
   10 παικτών, αλλαγή host στη μέση της μέρας, επανασύνδεση μετά από ανανέωση, επιστροφή στο δωμάτιο.
@@ -151,7 +153,7 @@ phone or a computer, with no install and no account.
 - **3D office** with desks, monitors, a big price board and a shop machine. Three cameras in settings:
   **first person**, **third person** (walk with WASD/mouse or a joystick on phones, E for the terminal, Q for
   the shop, Esc for the menu) or a **fixed overhead view**.
-- **A changing stock exchange**: start with 5 fictional stocks and grow to 12 from a catalogue of 24. **IPOs**
+- **A changing stock exchange**: start with 5 fictional stocks and grow to 12 from a catalogue of 34. **IPOs**
   with a hint the day before and possible “fever”, **bankruptcies** foreshadowed by worrying headlines, stocks
   that mature, local companies early and international ones from Wall Street up. Headlines just before the price
   moves, **rumors** that may go the other way, and **crashes**.
@@ -165,7 +167,9 @@ phone or a computer, with no install and no account.
 - **Securities Commission**: suspicion rises with shady tricks and outsized profits; one day an investigation
   arrives with bans and a fine.
 - **First-day guide** that anyone can skip.
-- **17 items**: insider tip, social media hype, forum panic, trading halt, ×3 leverage, express loan, coffee
+- **Closing-bell animation**: a party or a fight, depending on the day, the premises and the money.
+- Coming soon: **a game with roles** (e.g. the one who finds funds).
+- **18 items**: insider tip, social media hype, forum panic, trading halt, ×3 leverage, express loan, coffee
   for extra time, short-selling licence, stop-loss, golden parachute and more.
 - **Online with friends** from anywhere in the world, via a room code or an invite link. Chat and emotes over
   the avatars.
@@ -202,7 +206,7 @@ saved state. Anyone who refreshes the page rejoins the room.
 default to the fixed camera and light graphics.
 
 **Quality.**
-- **64 tests** (Vitest), with simulations of thousands of random moves checking that the balance never goes
+- **65 tests** (Vitest), with simulations of thousands of random moves checking that the balance never goes
   negative and no position is lost.
 - During development, **real-browser tests** (Playwright) against a local Firebase emulator: 10-player games, a
   host change mid-day, rejoining after a refresh, returning to the room.

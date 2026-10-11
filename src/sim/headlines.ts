@@ -166,6 +166,46 @@ export const SPECIFIC: { up: Tr[]; down: Tr[] }[] = [
     up: [{ el: 'Ο Γέτι παραδίδει και στα Ιμαλάια', en: 'Yeti now delivers to the Himalayas' }],
     down: [{ el: 'Ο Γέτι πήρε άδεια ασθενείας', en: 'The Yeti takes sick leave' }],
   },
+  {
+    up: [{ el: 'Όλη η Ελλάδα βάφει τα κάγκελα του μπαλκονιού', en: 'All of Greece repaints its balcony railings' }],
+    down: [{ el: 'Η νέα μόδα: «άβαφο ξύλο»', en: 'New trend: “unpainted wood”' }],
+  },
+  {
+    up: [{ el: 'Η Ζαριά Bet παίρνει άδεια για στοιχήματα στο τάβλι', en: 'Zaria Bet licensed for backgammon betting' }],
+    down: [{ el: 'Πρόστιμο για «πολύ τυχερούς» πελάτες', en: 'Fined over “far too lucky” customers' }],
+  },
+  {
+    up: [{ el: 'Βρέθηκε κοίτασμα κάτω από νησάκι του Αιγαίου', en: 'Oil found under a tiny Aegean island' }],
+    down: [{ el: 'Η γεώτρηση βρήκε μόνο… φέτα', en: 'The drill only struck… feta' }],
+  },
+  {
+    up: [{ el: 'Ο Καπετάν Γιώργης αγοράζει 12 νέα δεξαμενόπλοια', en: 'Captain George buys 12 new tankers' }],
+    down: [{ el: 'Το καράβι κόλλησε σε κανάλι', en: 'Ship stuck in a canal' }],
+  },
+  {
+    up: [{ el: 'Εγκρίθηκε το φάρμακο για τον «πονοκέφαλο της Δευτέρας»', en: 'Drug for “Monday headaches” approved' }],
+    down: [{ el: 'Η κλινική μελέτη ξεχάστηκε σε ταξί', en: 'Clinical trial left in a taxi' }],
+  },
+  {
+    up: [{ el: 'Η τεκίλα FARIAS γίνεται το ποτό της χρονιάς', en: 'FARIAS tequila named drink of the year' }],
+    down: [{ el: 'Έλλειψη αγαύης στο Μεξικό', en: 'Agave shortage in Mexico' }],
+  },
+  {
+    up: [{ el: 'Το χάπι της PillPal εγκρίνεται σε 40 χώρες', en: 'PillPal pill approved in 40 countries' }],
+    down: [{ el: 'Παρενέργεια: οι ασθενείς χορεύουν ασταμάτητα', en: 'Side effect: patients can’t stop dancing' }],
+  },
+  {
+    up: [{ el: 'Νέο καζίνο-ουρανοξύστης στο Λας Βέγκας', en: 'New skyscraper casino in Las Vegas' }],
+    down: [{ el: 'Παίκτης «έσπασε» τη ρουλέτα', en: 'Player “breaks” the roulette' }],
+  },
+  {
+    up: [{ el: 'Μεγάλη παραγγελία από ξένη κυβέρνηση', en: 'Huge order from a foreign government' }],
+    down: [{ el: 'Ο νέος πύραυλος γύρισε πίσω στο εργοστάσιο', en: 'New rocket flew back to the factory' }],
+  },
+  {
+    up: [{ el: 'Το πετρέλαιο ακριβαίνει: «μαύρος χρυσός» ξανά', en: 'Oil prices surge: “black gold” again' }],
+    down: [{ el: 'Πετρελαιοκηλίδα σε τουριστική παραλία', en: 'Oil spill on a tourist beach' }],
+  },
 ];
 
 export const MARKET_UP: Tr[] = [
