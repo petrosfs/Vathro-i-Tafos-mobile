@@ -955,7 +955,7 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
     tex(t2);
     return new THREE.MeshBasicMaterial({ map: t2, toneMapped: false });
   };
-  const plaque = (m: THREE.Material, w: number, h: number, x: number, y: number, z = wz + 0.03) => {
+  const plaque = (m: THREE.Material, w: number, h: number, x: number, y: number, z = wz + 0.05) => {
     const pm = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
     pm.position.set(x, y, z);
     group.add(pm);
@@ -1117,7 +1117,10 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
     door.add(pane);
   }
   group.add(door);
-  inside.build(group, { receive: true, cast: shadows });
+  // οι τοίχοι, η οροφή και τα δοκάρια δεν ρίχνουν σκιά: ο ήλιος είναι πάνω από τη σκεπή και θα σκοτείνιαζε
+  // όλο τον χώρο με λοξές σκιές και ρίγες· σκιές ρίχνουν μόνο τα έπιπλα και οι χαρακτήρες
+  void shadows;
+  inside.build(group, { receive: true, cast: false });
   top.build(ceilingGroup);
   out.build(group);
   glassB.build(group);

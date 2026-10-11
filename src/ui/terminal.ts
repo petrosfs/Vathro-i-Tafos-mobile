@@ -13,6 +13,16 @@ import { sfx } from '../audio';
 
 const FRACTIONS = [0.1, 0.25, 0.5, 1];
 
+/**
+ * Πού βρίσκεται η «κεφαλή» του γραφήματος: φτάνει την τιμή του τρέχοντος tick μέσα σε 1/8″ και μένει εκεί,
+ * ώστε γράφημα, τιμή, κέρδος θέσεων και ταμείο να δείχνουν πάντα το ίδιο νούμερο (χωρίς να «προλαβαίνει» το επόμενο tick).
+ */
+function chartNow(tf: number, len: number): number {
+  const tick = Math.floor(tf);
+  if (tick < 1 || tick >= len) return Math.max(0, Math.min(len, tick));
+  return tick - 1 + Math.min(1, (tf - tick) * 4);
+}
+
 export class Terminal {
   readonly el: HTMLElement;
   selected = 0;
@@ -28,6 +38,7 @@ export class Terminal {
   private posKey = '';
   private lastTrading = false;
   private tickerKey = '\u0000';
+  private shownTick = -1;
 
   constructor(private g: GameController, onClose: () => void) {
     this.el = h(`
@@ -154,10 +165,16 @@ export class Terminal {
     const series = g.series();
     const sel = this.selected;
     const tf = s.phase === 'trading' ? Math.max(0, Math.min(s.len, g.tickF())) : s.len;
-    const tick = Math.floor(tf);
+    const tick = g.tick();
+    // νέο tick: τιμές, κέρδος θέσεων και ειδήσεις αλλάζουν μαζί με το γράφημα
+    if (tick !== this.shownTick) {
+      this.shownTick = tick;
+      this.update();
+      return;
+    }
     const tip = s.tips.filter((x) => x.stock === sel && tick < x.from + TIP_TICKS).at(-1);
     drawChart(this.chart, {
-      series: series[sel], now: tf, len: s.len, color: STOCKS[sel].color,
+      series: series[sel], now: chartNow(tf, s.len), len: s.len, color: STOCKS[sel].color,
       future: tip ? { from: tick, to: tip.from + TIP_TICKS } : null,
       markers: s.positions.filter((q) => q.stock === sel && q.owner === g.uid).map((q) => ({ tick: q.tick, price: q.entry, side: q.side })),
       news: visibleNews(s, tick).filter((n) => n.stock === sel || (n.stock === -1 && (n.sector === undefined || SECTORS[n.sector]?.id === STOCKS[sel]?.sector))).map((n) => ({ tick: Math.max(0, shownAt(s, n)), dir: n.dir })),
@@ -214,12 +231,13 @@ export class Terminal {
     const s = g.s!;
     const series = g.series();
     const tf = s.phase === 'trading' ? Math.max(0, Math.min(s.len, g.tickF())) : s.len;
-    const tick = Math.floor(tf);
+    const tick = g.tick();
+    const head = chartNow(tf, s.len);
     this.el.querySelectorAll<HTMLElement>('.xchart').forEach((box) => {
       const id = this.extra[Number(box.dataset.k)];
       if (id === undefined || !series[id]) return;
       drawChart(box.querySelector('canvas')!, {
-        series: series[id], now: tf, len: s.len, color: STOCKS[id].color, future: null,
+        series: series[id], now: head, len: s.len, color: STOCKS[id].color, future: null,
         markers: s.positions.filter((q) => q.stock === id && q.owner === g.uid).map((q) => ({ tick: q.tick, price: q.entry, side: q.side })),
         news: [], halts: [],
       });

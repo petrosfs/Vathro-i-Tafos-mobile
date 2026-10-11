@@ -275,7 +275,10 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         const d = decodeSay(m.text);
         world.say(m.uid, d.text, Date.now());
         if (d.preset !== null) speak(d.text, m.uid);
-        if (m.uid !== g.uid && panel !== 'chat' && !world.isNear(m.uid)) toast(`${m.name || g.name(m.uid)}: ${d.text}`);
+        // όταν το συννεφάκι δεν φαίνεται (πρώτο πρόσωπο για τον εαυτό σου, ανοιχτό πάνελ, μακριά), βγαίνει και ως μήνυμα
+        const mine = m.uid === g.uid;
+        const bubbleHidden = (!!panel && panel !== 'chat') || (mine ? world.view === 'first' : !world.isNear(m.uid));
+        if (panel !== 'chat' && bubbleHidden) toast(`🗣 ${mine ? t('you').replace(/^./, (c) => c.toUpperCase()) : m.name || g.name(m.uid)}: ${d.text}`, 'info', Math.min(6000, 2500 + d.text.length * 60));
       }
     });
     function updateBadge() {
@@ -563,6 +566,12 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           : `${t('shop.next', { d: s.day })}: ${money(s.quota)}`,
         headline: news ? `${newsTag(news)} · ${headline(news)}` : trading ? '' : `🛒 ${t('shop.title')}`,
         headlineColor: news ? (news.rumor ? '#C792EA' : news.dir > 0 ? '#3DDC84' : '#FF5C5C') : '#F5C542',
+        news: trading
+          ? visibleNews(s, tick).slice(-3).reverse().map((n) => ({
+            text: `${newsTag(n)} · ${headline(n)}`,
+            color: n.rumor ? '#C792EA' : n.dir > 0 ? '#3DDC84' : '#FF5C5C',
+          }))
+          : [],
       };
     }
 
@@ -630,11 +639,18 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         lastMon = now;
         monitors(now);
       }
-      if (panel === 'terminal' && now - lastChart > 45) {
+      // HUD (ταμείο, στόχος) την ίδια στιγμή που αλλάζει το tick, όπως το γράφημα και οι θέσεις
+      const tk = g.tick();
+      if (tk !== hudTick) {
+        hudTick = tk;
+        refreshHud();
+      }
+      if (panel === 'terminal' && now - lastChart > 30) {
         lastChart = now;
         terminal.drawLive();
       }
     };
+    let hudTick = -1;
     let lastChart = 0;
 
     // ---- μενού ----

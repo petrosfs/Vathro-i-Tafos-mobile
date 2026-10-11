@@ -410,9 +410,12 @@ export class World {
     return best;
   }
 
+  private lastBoard: BoardData | null = null;
   setBoard(d: BoardData) {
+    this.lastBoard = d;
     this.tv.setData(d);
-    drawBoard(this.office.board.ctx, d);
+    // στο γκαράζ δεν υπάρχει τηλεόραση: ο πίνακας δίνει περισσότερο χώρο στις ειδήσεις
+    drawBoard(this.office.board.ctx, { ...d, bigNews: (this.venueLevel ?? 0) === 0 });
     this.office.board.tex.needsUpdate = true;
     if (d.headline !== this.lastHeadline) {
       this.lastHeadline = d.headline;
@@ -483,6 +486,13 @@ export class World {
     const v = buildVenue(level, this.opts.quality === 'high');
     this.venue = v;
     this.tv.group.visible = level >= 1;
+    // μικρότερος πίνακας στο γκαράζ
+    const k = level === 0 ? 0.8 : 1;
+    for (const m of this.office.boardMeshes) {
+      m.scale.setScalar(k);
+      m.position.y = level === 0 ? 2.05 : 2.2;
+    }
+    if (this.lastBoard) this.setBoard(this.lastBoard);
     this.scene.add(v.group);
     this.syncCeiling();
     this.office.colliders.length = this.coreColliders;

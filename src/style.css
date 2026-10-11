@@ -957,8 +957,8 @@ canvas.chart {
 
 .pos {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-areas: 't s b' 'm p b';
+  grid-template-columns: auto auto 1fr auto;
+  grid-template-areas: 't s p b' 'm m m b';
   gap: 0.1rem 0.6rem;
   align-items: center;
   background: #121a2a;
@@ -983,7 +983,9 @@ canvas.chart {
 .pos-m {
   grid-area: m;
   font-size: 0.72rem;
-  grid-column: 1 / 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pos-pnl {
@@ -2227,4 +2229,52 @@ tr.me td {
   .game.saying .say-bar {
     bottom: calc(env(safe-area-inset-bottom) + 8px);
   }
+}
+
+/* ---------- προφίλ: καρτέλες κατηγοριών ---------- */
+.profile .big-preview {
+  height: min(300px, 27dvh);
+}
+
+.ptabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.3rem;
+  margin-top: 0.6rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg, #0b0f18);
+  padding: 0.3rem 0;
+}
+
+.ptabs button {
+  background: #161d2c;
+  border: 1px solid var(--line);
+  color: inherit;
+  border-radius: 10px;
+  padding: 0.5rem 0.2rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ptabs button.sel {
+  background: #2a3450;
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.ptab {
+  min-height: 12rem;
+}
+
+.ptab[hidden] {
+  display: none;
+}
+
+.ptab h3:first-child {
+  margin-top: 0.4rem;
 }

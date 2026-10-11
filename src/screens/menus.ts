@@ -154,20 +154,35 @@ export function profileScreen(back: Screen, after?: () => void): Screen {
     const el = h(`
       <main class="narrow profile">
         <header class="page-head"><button class="icon-btn" data-back aria-label="${esc(t('back'))}">←</button><h1>${esc(t('profile.title'))}</h1></header>
-        <div class="preview big-preview"></div>
-        <p class="muted small center hint">${esc(t('profile.hint'))}</p>
-        <label class="field"><span>${esc(t('profile.name'))}</span><input name="name" maxlength="16" placeholder="${esc(t('profile.namePh'))}" value="${esc(p.name)}" /></label>
-        <h3>${esc(t('profile.suit'))}</h3>${swatches('suit', SUITS)}
-        <h3>${esc(t('profile.tie'))}</h3>${swatches('tie', TIES)}
-        <h3>${esc(t('profile.skin'))}</h3>${swatches('skin', SKINS)}
-        <h3>${esc(t('profile.hair'))}</h3>${options('hair', HAIR_STYLES, 'hair')}
-        <h3>${esc(t('profile.hairColor'))}</h3>${swatches('hairColor', HAIR_COLORS)}
-        <h3>${esc(t('profile.hat'))}</h3>${options('hat', HATS, 'hat')}
-        <h3>${esc(t('profile.glasses'))}</h3>${options('glasses', GLASSES, 'glasses')}
-        <h3>${esc(t('profile.beard'))}</h3>${options('beard', BEARDS, 'beard')}
-        <h3>${esc(t('profile.eyes'))}</h3>${options('eyes', EYES, 'eyes')}
-        <h3>${esc(t('profile.mouth'))}</h3>${options('mouth', MOUTHS, 'mouth')}
-        <h3>${esc(t('profile.brows'))}</h3>${options('brows', BROWS, 'brows')}
+        <div class="profile-top">
+          <div class="preview big-preview"></div>
+          <label class="field"><span>${esc(t('profile.name'))}</span><input name="name" maxlength="16" placeholder="${esc(t('profile.namePh'))}" value="${esc(p.name)}" /></label>
+        </div>
+        <nav class="ptabs" role="tablist">
+          <button type="button" data-tab="clothes" class="sel">👔 ${esc(t('profile.tab.clothes'))}</button>
+          <button type="button" data-tab="hair">💇 ${esc(t('profile.tab.hair'))}</button>
+          <button type="button" data-tab="face">🙂 ${esc(t('profile.tab.face'))}</button>
+          <button type="button" data-tab="extras">🕶 ${esc(t('profile.tab.extras'))}</button>
+        </nav>
+        <section class="ptab" data-pane="clothes">
+          <h3>${esc(t('profile.suit'))}</h3>${swatches('suit', SUITS)}
+          <h3>${esc(t('profile.tie'))}</h3>${swatches('tie', TIES)}
+          <h3>${esc(t('profile.skin'))}</h3>${swatches('skin', SKINS)}
+        </section>
+        <section class="ptab" data-pane="hair" hidden>
+          <h3>${esc(t('profile.hair'))}</h3>${options('hair', HAIR_STYLES, 'hair')}
+          <h3>${esc(t('profile.hairColor'))}</h3>${swatches('hairColor', HAIR_COLORS)}
+          <h3>${esc(t('profile.beard'))}</h3>${options('beard', BEARDS, 'beard')}
+        </section>
+        <section class="ptab" data-pane="face" hidden>
+          <h3>${esc(t('profile.eyes'))}</h3>${options('eyes', EYES, 'eyes')}
+          <h3>${esc(t('profile.mouth'))}</h3>${options('mouth', MOUTHS, 'mouth')}
+          <h3>${esc(t('profile.brows'))}</h3>${options('brows', BROWS, 'brows')}
+        </section>
+        <section class="ptab" data-pane="extras" hidden>
+          <h3>${esc(t('profile.hat'))}</h3>${options('hat', HATS, 'hat')}
+          <h3>${esc(t('profile.glasses'))}</h3>${options('glasses', GLASSES, 'glasses')}
+        </section>
         <div class="row">
           <button class="btn ghost" data-random>🎲 ${esc(t('profile.random'))}</button>
           <button class="btn primary" data-save>${esc(t('profile.save'))}</button>
@@ -183,6 +198,15 @@ export function profileScreen(back: Screen, after?: () => void): Screen {
       preview.set(look);
     };
     sync();
+    // καρτέλες: μία κατηγορία τη φορά, χωρίς κύλιση· στο πρόσωπο η κάμερα κάνει ζουμ
+    el.querySelector('.ptabs')!.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-tab]');
+      if (!b) return;
+      const tab = b.dataset.tab!;
+      el.querySelectorAll<HTMLElement>('[data-tab]').forEach((x) => x.classList.toggle('sel', x === b));
+      el.querySelectorAll<HTMLElement>('[data-pane]').forEach((x) => (x.hidden = x.dataset.pane !== tab));
+      preview.focusFace(tab === 'face' || tab === 'hair' || tab === 'extras');
+    });
     el.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-v]');
       const box = b?.closest<HTMLElement>('[data-k]');

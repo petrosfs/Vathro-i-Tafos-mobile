@@ -34,7 +34,10 @@ export class AvatarPreview {
       const dx = e.clientX - this.drag.x;
       this.drag.x = e.clientX;
       this.drag.moved += Math.abs(dx);
-      if (this.drag.moved > 4) this.spinning = false;
+      if (this.drag.moved > 4) {
+        this.spinning = false;
+        this.faceTurn = false;
+      }
       this.avatar.group.rotation.y += dx * 0.012;
       this.velocity = dx * 0.012;
     });
@@ -56,6 +59,9 @@ export class AvatarPreview {
     this.scene.add(disc);
     this.camera.position.set(0, 1.35, 4.2);
     this.camera.lookAt(0, 1.05, 0);
+    const camPos = new THREE.Vector3(0, 1.35, 4.2);
+    const camLook = new THREE.Vector3(0, 1.05, 0);
+    const look = camLook.clone();
     const loop = () => {
       this.raf = requestAnimationFrame(loop);
       const now = performance.now();
@@ -71,8 +77,22 @@ export class AvatarPreview {
           this.camera.updateProjectionMatrix();
         }
       }
+      // ομαλό ζουμ στο πρόσωπο (καρτέλα «Πρόσωπο») ή σε όλο το σώμα
+      const face = this.zoomFace;
+      camPos.set(0, face ? 1.95 : 1.35, face ? 2.15 : 4.2);
+      camLook.set(0, face ? 1.82 : 1.05, 0);
+      const kz = 1 - Math.exp(-dt * 7);
+      this.camera.position.lerp(camPos, kz);
+      look.lerp(camLook, kz);
+      this.camera.lookAt(look);
       if (this.avatar) {
-        if (this.spinning && !this.drag) this.avatar.group.rotation.y += dt * 0.6;
+        if (this.faceTurn && !this.drag) {
+          // μόλις άνοιξε η καρτέλα: ο χαρακτήρας γυρίζει να μας κοιτάξει
+          const r = this.avatar.group.rotation.y;
+          const target = Math.round(r / (Math.PI * 2)) * Math.PI * 2;
+          this.avatar.group.rotation.y += (target - r) * kz;
+          if (Math.abs(target - r) < 0.002) this.faceTurn = false;
+        } else if (this.spinning && !this.drag) this.avatar.group.rotation.y += dt * 0.6;
         else if (!this.drag && Math.abs(this.velocity) > 0.0005) {
           // λίγη αδράνεια μετά το σύρσιμο
           this.avatar.group.rotation.y += this.velocity;
@@ -83,6 +103,15 @@ export class AvatarPreview {
       this.renderer.render(this.scene, this.camera);
     };
     this.raf = requestAnimationFrame(loop);
+  }
+
+  /** Ζουμ στο πρόσωπο (true) ή σε όλο το σώμα. */
+  zoomFace = false;
+  private faceTurn = false;
+  focusFace(v: boolean) {
+    this.zoomFace = v;
+    this.spinning = !v;
+    this.faceTurn = v;
   }
 
   set(look: Look) {

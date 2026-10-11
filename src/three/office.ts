@@ -51,6 +51,8 @@ export interface Office {
   /** Οι οθόνες κάθε γραφείου (η πρώτη είναι η κύρια) και το κέντρο κάθε γραφείου. */
   deskScreens: THREE.Group[][];
   deskPos: { x: number; z: number }[];
+  /** Ο πίνακας και το πλαίσιό του (μικραίνουν στο γκαράζ). */
+  boardMeshes: THREE.Mesh[];
 }
 
 export const MAX_DESK_SCREENS = 6;
@@ -227,7 +229,7 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
   sun.target.position.set(0, 0, 0);
   if (shadows) {
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.mapSize.set(2048, 2048);
     const c = sun.shadow.camera;
     c.left = -13;
     c.right = 13;
@@ -235,11 +237,14 @@ export function buildOffice(shopTitle: string, shopSub: string, shadows: boolean
     c.bottom = -10;
     c.near = 1;
     c.far = 30;
-    sun.shadow.bias = -0.0008;
+    // χωρίς «ρίγες» (shadow acne) πάνω στις ίδιες τις επιφάνειες
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.035;
+    sun.shadow.radius = 3;
   }
   g.add(sun, sun.target);
   return {
-    group: g, board, monitors, seats, colliders, interactables, shopGlow: glow,
+    group: g, board, monitors, seats, colliders, interactables, shopGlow: glow, boardMeshes: [boardMesh, frameMesh],
     lights: { hemi, sun, panels: [] }, stage: new THREE.Vector3(0, 0, -5), bell, deskDecor, deskMats, boardFrame,
     deskScreens, deskPos: DESKS.map(([x, z]) => ({ x, z })),
   };

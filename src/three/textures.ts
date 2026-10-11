@@ -48,6 +48,10 @@ export interface BoardData {
   progressText: string;
   headline: string;
   headlineColor: string;
+  /** Οι τελευταίες ειδήσεις (η νεότερη πρώτη) για τον πίνακα με μεγάλο χώρο ειδήσεων. */
+  news?: { text: string; color: string }[];
+  /** Μεγάλος χώρος ειδήσεων (στο γκαράζ, όπου δεν υπάρχει τηλεόραση). */
+  bigNews?: boolean;
 }
 
 /** Ο μεγάλος πίνακας τιμών στον τοίχο. */
@@ -72,7 +76,8 @@ export function drawBoard(ctx: CanvasRenderingContext2D, d: BoardData) {
   const top = 76;
   const cols = d.rows.length > 8 ? 3 : 2;
   const k = cols === 3 ? 0.74 : 1;
-  const rowH = (H - top - 120) / 4;
+  const newsH = d.bigNews ? 150 : 56;
+  const rowH = (H - top - newsH - 64) / 4;
   d.rows.forEach((r, i) => {
     const col = Math.floor(i / 4);
     const row = i % 4;
@@ -113,7 +118,7 @@ export function drawBoard(ctx: CanvasRenderingContext2D, d: BoardData) {
     }
   });
   // στόχος
-  const py = H - 108;
+  const py = H - newsH - 52;
   ctx.fillStyle = '#0E1626';
   ctx.fillRect(0, py, W, 52);
   const pw = W - 48;
@@ -128,9 +133,23 @@ export function drawBoard(ctx: CanvasRenderingContext2D, d: BoardData) {
   ctx.fillText(d.progressText, W / 2, py + 27);
   // τίτλος ειδήσεων
   ctx.fillStyle = '#111A2D';
-  ctx.fillRect(0, H - 56, W, 56);
-  ctx.fillStyle = d.headlineColor;
+  ctx.fillRect(0, H - newsH, W, newsH);
   ctx.textAlign = 'left';
+  if (d.bigNews) {
+    // τρεις τελευταίες ειδήσεις: η νεότερη μεγάλη, οι προηγούμενες πιο σβηστές
+    const list = d.news?.length ? d.news.slice(0, 3) : [{ text: d.headline, color: d.headlineColor }];
+    ctx.fillStyle = '#C62828';
+    ctx.fillRect(0, H - newsH, 8, newsH);
+    list.forEach((n, i) => {
+      ctx.globalAlpha = i ? 0.62 : 1;
+      ctx.fillStyle = n.color;
+      ctx.font = `${i ? 600 : 800} ${i ? 26 : 32}px ${FONT}`;
+      ctx.fillText(fit(ctx, n.text, W - 44), 24, H - newsH + 28 + (i ? 22 + i * 38 : 0));
+    });
+    ctx.globalAlpha = 1;
+    return;
+  }
+  ctx.fillStyle = d.headlineColor;
   ctx.font = `700 28px ${FONT}`;
   ctx.fillText(fit(ctx, d.headline, W - 40), 20, H - 27);
 }
