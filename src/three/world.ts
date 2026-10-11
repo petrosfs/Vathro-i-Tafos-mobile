@@ -14,8 +14,9 @@ import { NewsTv } from './newsTv';
 import type { SlotState } from '../sim/slot';
 import type { DecorId, UpgradeId } from '../sim/office';
 import { FirstPerson, collide } from './controls';
+import { MapControls } from 'three/addons/controls/MapControls.js';
 import { buildOffice, MAX_DESK_SCREENS, ROOM, SCREEN_LAYOUT, type Interactable, type Office } from './office';
-import { canvasTexture, drawBoard, drawMonitor, drawNeon, drawNewsScreen, drawTombstone, setTextureScale, type BoardData } from './textures';
+import { canvasTexture, drawBoard, drawScoreboard, drawMonitor, drawNeon, drawNewsScreen, drawTombstone, setTextureScale, type BoardData } from './textures';
 import { pixelRatioFor, type Resolution } from '../settings';
 
 export type ViewMode = 'first' | 'third' | 'overview';
@@ -90,6 +91,17 @@ export class World {
   private aquarium: THREE.Group | null = null;
   private slot: SlotMachine | null = null;
   private tv: NewsTv;
+  private score: { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D };
+  private scoreKey = '';
+
+  /** Ο πίνακας της μέρας: κέρδος/ζημιά, συναλλαγές και καλύτερη συναλλαγή του καθενός. */
+  setScoreboard(d: Parameters<typeof drawScoreboard>[1]) {
+    const key = JSON.stringify(d);
+    if (key === this.scoreKey) return;
+    this.scoreKey = key;
+    drawScoreboard(this.score.ctx, d);
+    this.score.tex.needsUpdate = true;
+  }
   private slotSeen = -1;
   /** Θέση του κουλοχέρη (δυτικός τοίχος, κοιτάζει προς τα γραφεία). */
   static readonly SLOT_POS = { x: -11.3, z: 5.6 };
@@ -117,6 +129,14 @@ export class World {
     container.append(this.renderer.domElement);
     this.office = buildOffice(opts.shopTitle, opts.shopSub, high);
     this.money = new MoneyFx(this.scene);
+    // ο πίνακας της μέρας (scoreboard), αριστερά από τον μεγάλο πίνακα
+    this.score = canvasTexture(768, 540);
+    const scoreFrame = new THREE.Mesh(new THREE.BoxGeometry(2.66, 1.92, 0.05), mat('#1A1A1A'));
+    scoreFrame.position.set(-6.5, 2.0, ROOM.minZ + 0.03);
+    this.scene.add(scoreFrame);
+    const scoreMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.76), new THREE.MeshBasicMaterial({ map: this.score.tex, toneMapped: false }));
+    scoreMesh.position.set(-6.5, 2.0, ROOM.minZ + 0.06);
+    this.scene.add(scoreMesh);
     // τηλεόραση με δελτίο ειδήσεων δίπλα στον πίνακα (από την πολυκατοικία και πάνω)
     this.tv = new NewsTv(opts.tv);
     this.tv.group.position.set(5.85, 2.3, ROOM.minZ + 0.1);
@@ -154,8 +174,38 @@ export class World {
     this.resize();
   }
 
+  /** Ελεύθερη κάμερα από ψηλά: σύρσιμο για μετακίνηση, ροδέλα/τσίμπημα για ζουμ, δεξί κλικ/δύο δάχτυλα για περιστροφή. */
+  private orbit: MapControls | null = null;
+  private makeOrbit() {
+    const portrait = this.camera.aspect < 1;
+    this.camera.position.set(0, portrait ? 23 : 10, portrait ? 5.8 : 7.7);
+    const o = new MapControls(this.camera, this.renderer.domElement);
+    o.target.set(0, 0, -1.4);
+    o.enableDamping = true;
+    o.dampingFactor = 0.12;
+    o.screenSpacePanning = false;
+    o.minDistance = 3;
+    o.maxDistance = 28;
+    o.maxPolarAngle = 1.25;
+    o.zoomSpeed = 1.2;
+    o.addEventListener('change', () => {
+      // ο στόχος μένει μέσα στο γραφείο
+      const t = o.target;
+      t.x = Math.max(ROOM.minX, Math.min(ROOM.maxX, t.x));
+      t.z = Math.max(ROOM.minZ, Math.min(ROOM.maxZ, t.z));
+      t.y = 0;
+    });
+    o.update();
+    this.orbit = o;
+  }
+
   setView(v: ViewMode) {
     this.view = v;
+    if (v === 'overview' && !this.orbit) this.makeOrbit();
+    if (v !== 'overview' && this.orbit) {
+      this.orbit.dispose();
+      this.orbit = null;
+    }
     if (v !== 'overview' && !this.fp) {
       this.fp = new FirstPerson(this.renderer.domElement, this.opts.sensitivity);
       this.fp.speedMul = this.speedBoost;
@@ -603,7 +653,7 @@ export class World {
         const tex = canvasTexture(512, 128);
         drawNeon(tex.ctx, this.opts.neonText);
         const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.8), new THREE.MeshBasicMaterial({ map: tex.tex, transparent: true }));
-        sign.position.set(-8.6, 3.0, ROOM.minZ + 0.05);
+        sign.position.set(-9.7, 3.15, ROOM.minZ + 0.05);
         g.add(sign);
         break;
       }
@@ -758,7 +808,9 @@ export class World {
     if (this.aquarium) animateAquarium(this.aquarium, now / 1000);
     if (this.tiger && !this.ending) this.tiger.update(Date.now());
     this.updateCamera(dt, now);
-    const tagK = this.ending || this.fp ? 1 : this.camera.aspect < 1 ? 1.9 : 1.5;
+    // ετικέτες ονομάτων: μεγαλύτερες όσο πιο μακριά είναι η ελεύθερη κάμερα
+    const orbitK = this.orbit ? Math.round(Math.max(0.6, Math.min(2.2, this.camera.position.distanceTo(this.orbit.target) / 8)) * 10) / 10 : 1.5;
+    const tagK = this.ending || this.fp ? 1 : this.camera.aspect < 1 ? Math.max(orbitK, 1) * 1.25 : orbitK;
     if (tagK !== this.tagK) {
       this.tagK = tagK;
       for (const a of this.avatars.values()) a.setTagScale(tagK);
@@ -817,10 +869,14 @@ export class World {
       this.fp.apply(this.camera);
       return;
     }
-    // σταθερή κάμερα: όλο το γραφείο με τον πίνακα στο βάθος
+    // ελεύθερη κάμερα από ψηλά
     const portrait = aspect < 1;
     this.camera.fov = portrait ? 64 : 62;
     this.camera.updateProjectionMatrix();
+    if (this.orbit) {
+      this.orbit.update();
+      return;
+    }
     const sway = this.opts.reduceMotion ? 0 : Math.sin(now / 5000) * 0.4;
     if (portrait) {
       // από ψηλά (μέσα από το ταβάνι, που δεν φαίνεται από πάνω) για να χωράνε όλα τα γραφεία

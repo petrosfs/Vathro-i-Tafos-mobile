@@ -5,42 +5,44 @@ import { getLang, t, tr } from '../i18n';
 import type { Tr } from '../sim/stocks';
 import { loadSettings } from '../settings';
 
-export const PHRASES: Tr[] = [
+/** Έτοιμες φράσεις: οι μισές ελληνικές (μεταφράζονται στα αγγλικά), οι μισές πάντα στα αγγλικά. */
+const en = (x: string): Tr & { enOnly: true } => ({ el: x, en: x, enOnly: true });
+export const PHRASES: (Tr & { enOnly?: true })[] = [
   { el: 'Αγοράστε τώρα!', en: 'Buy now!' },
-  { el: 'Πουλήστε, πουλήστε!', en: 'Sell, sell!' },
-  { el: 'Στο φεγγάρι! 🚀', en: 'To the moon! 🚀' },
+  en('Sell, sell, sell!'),
   { el: 'Βουτάει!', en: 'It’s tanking!' },
+  en('To the moon! 🚀'),
   { el: 'Ποιος αγόρασε αυτό;', en: 'Who bought this?' },
-  { el: 'Διαβάσατε την είδηση;', en: 'Did you read the news?' },
+  en('Buy the dip!'),
   { el: 'Μπράβο ρε!', en: 'Nice one!' },
-  { el: 'Είμαστε πλούσιοι!', en: 'We’re rich!' },
+  en('We’re rich, baby!'),
   { el: 'Πιάσαμε τον στόχο!', en: 'We hit the quota!' },
-  { el: 'Κλείστε τις θέσεις!', en: 'Close your positions!' },
+  en('Close your positions!'),
   { el: 'Ησυχία, σκέφτομαι!', en: 'Quiet, I’m thinking!' },
-  { el: 'Η Επιτροπή μάς κοιτάει…', en: 'The Commission is watching…' },
+  en('Diamond hands! 💎🙌'),
   { el: 'Πάω για καφέ ☕', en: 'Coffee break ☕' },
-  { el: 'Βοήθεια!', en: 'Help!' },
+  en('The Commission is watching…'),
 ];
 
 const PREFIX = '#q';
 
 /** Τι λέει ένα μήνυμα chat (οι έτοιμες φράσεις στη γλώσσα του καθενός). */
-export function decodeSay(text: string): { text: string; preset: number | null } {
+export function decodeSay(text: string): { text: string; preset: number | null; en: boolean } {
   if (text.startsWith(PREFIX)) {
     const n = Number(text.slice(PREFIX.length));
-    if (Number.isInteger(n) && PHRASES[n]) return { text: tr(PHRASES[n]), preset: n };
+    if (Number.isInteger(n) && PHRASES[n]) return { text: tr(PHRASES[n]), preset: n, en: !!PHRASES[n].enOnly };
   }
-  return { text, preset: null };
+  return { text, preset: null, en: false };
 }
 
 export const encodePreset = (n: number) => `${PREFIX}${n}`;
 
 /** Συνθετική φωνή της συσκευής (διαφορετικό ύψος για κάθε παίκτη). */
-export function speak(text: string, uid: string) {
+export function speak(text: string, uid: string, english = false) {
   try {
     if (!loadSettings().sound || !('speechSynthesis' in window)) return;
     const u = new SpeechSynthesisUtterance(text.replace(/[\u{1F300}-\u{1FAFF}☀-➿]/gu, ''));
-    const lang = getLang() === 'el' ? 'el-GR' : 'en-US';
+    const lang = getLang() === 'el' && !english ? 'el-GR' : 'en-US';
     u.lang = lang;
     const voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith(lang.slice(0, 2)));
     let hsh = 0;

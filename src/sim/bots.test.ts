@@ -260,7 +260,7 @@ describe('χώροι', () => {
     const m = new MarketCache();
     startDay(s, 0);
     s.cash += s.quota;
-    expect(endDay(s, m.prices(s)).coins).toBe(3 + 3);
+    expect(endDay(s, m.prices(s)).coins).toBe(2 + 3);
   });
 
   it('παλιές αποθηκευμένες παρτίδες ξεκινούν από το γκαράζ', () => {

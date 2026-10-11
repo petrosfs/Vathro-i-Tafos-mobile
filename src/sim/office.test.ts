@@ -35,7 +35,7 @@ describe('γραφείο', () => {
     expect(s.len).toBe(DEFAULT_CONFIG.dayLen + ESPRESSO_TICKS);
     s.cash += s.quota;
     const r = endDay(s, m.prices(s));
-    expect(r.coins).toBe(3 + 1);
+    expect(r.coins).toBe(2 + 1);
   });
 
   it('ξεκλειδώματα από την πρόοδο', () => {

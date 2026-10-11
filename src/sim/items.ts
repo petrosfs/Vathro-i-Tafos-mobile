@@ -93,7 +93,7 @@ export const ITEMS: ItemDef[] = [
   {
     id: 'piggy', kind: 'perk', price: 4, needsStock: false, weight: 5, glyph: '🐷',
     name: { el: 'Κουμπαράς', en: 'Piggy bank' },
-    desc: { el: '+2 νομίσματα κάθε μέρα που περνάτε.', en: '+2 coins for every day you pass.' },
+    desc: { el: '+1 νόμισμα κάθε μέρα που πιάνετε τον στόχο (3 αντί για 2).', en: '+1 coin for every day you hit the quota (3 instead of 2).' },
   },
   {
     id: 'radar', kind: 'perk', price: 3, needsStock: false, weight: 4, glyph: '⚠',

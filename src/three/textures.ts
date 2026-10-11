@@ -154,6 +154,67 @@ export function drawBoard(ctx: CanvasRenderingContext2D, d: BoardData) {
   ctx.fillText(fit(ctx, d.headline, W - 40), 20, H - 27);
 }
 
+export interface ScoreRow {
+  name: string;
+  color: string;
+  /** Κέρδος/ζημιά σήμερα (κλεισμένες και ανοιχτές θέσεις). */
+  pnl: number;
+  trades: number;
+  best: number | null;
+  me: boolean;
+  pnlText: string;
+  bestText: string;
+}
+
+/** Ο πίνακας της μέρας: τι έχει καταφέρει ο καθένας, με κατάταξη. */
+export function drawScoreboard(ctx: CanvasRenderingContext2D, d: { title: string; cols: [string, string, string]; rows: ScoreRow[] }) {
+  const W = ctx.canvas.width / (SCALE.get(ctx) ?? 1);
+  const H = ctx.canvas.height / (SCALE.get(ctx) ?? 1);
+  ctx.fillStyle = '#071A12';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#0D2A1E';
+  ctx.fillRect(0, 0, W, 58);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#F5C542';
+  ctx.font = `800 30px ${FONT}`;
+  ctx.fillText(`🏆 ${d.title}`, 18, 30);
+  // επικεφαλίδες στηλών
+  const cx = [W * 0.6, W * 0.75, W - 18];
+  ctx.font = `700 17px ${FONT}`;
+  ctx.fillStyle = '#8FB8A2';
+  ctx.textAlign = 'right';
+  d.cols.forEach((c, i) => ctx.fillText(c, cx[i], 78));
+  const top = 94;
+  const n = Math.max(1, d.rows.length);
+  const rowH = Math.min(84, (H - top - 8) / n);
+  const fs = Math.round(Math.min(36, rowH * 0.5));
+  d.rows.forEach((r, i) => {
+    const y = top + i * rowH;
+    ctx.fillStyle = r.me ? '#1C3B2C' : i % 2 ? '#0A2218' : '#0C271C';
+    ctx.fillRect(10, y, W - 20, rowH - 4);
+    ctx.fillStyle = r.color;
+    ctx.fillRect(10, y, 6, rowH - 4);
+    const my = y + (rowH - 4) / 2;
+    ctx.textAlign = 'left';
+    ctx.font = `800 ${fs}px ${MONO}`;
+    ctx.fillStyle = i === 0 && r.pnl > 0 ? '#F5C542' : '#CFE3D8';
+    ctx.fillText(`${i + 1}.`, 24, my);
+    ctx.font = `700 ${fs}px ${FONT}`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(fit(ctx, r.name, W * 0.6 - 160), 70, my);
+    ctx.textAlign = 'right';
+    ctx.font = `800 ${fs}px ${MONO}`;
+    ctx.fillStyle = r.pnl > 0 ? UP : r.pnl < 0 ? DOWN : '#CFE3D8';
+    ctx.fillText(r.pnlText, cx[0], my);
+    ctx.fillStyle = '#CFE3D8';
+    ctx.font = `700 ${fs}px ${MONO}`;
+    ctx.fillText(String(r.trades), cx[1], my);
+    ctx.fillStyle = r.best !== null && r.best > 0 ? UP : '#8FB8A2';
+    ctx.fillText(r.bestText, cx[2], my);
+  });
+}
+
 function fit(ctx: CanvasRenderingContext2D, s: string, w: number) {
   if (ctx.measureText(s).width <= w) return s;
   let k = s.length;

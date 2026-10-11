@@ -22,9 +22,9 @@ const BODY = {
     <ul>
       <li>Κάθε μέρα έχει <b>στόχο κέρδους</b>, που μεγαλώνει από μέρα σε μέρα (και με τον αριθμό των παικτών).</li>
       <li>Ο στόχος είναι <b>πάντα εφικτός</b>: κάθε μέρα η αγορά δίνει τουλάχιστον μία ευκαιρία (μόνο με αγορές, ως 2 συναλλαγές) αρκετή για 3× τον στόχο στο Εύκολο, 2× στο Κανονικό, 1,5× στο Δύσκολο. Άλλοτε την προαναγγέλλει μια είδηση, άλλοτε φαίνεται μόνο στο γράφημα ως σταθερή άνοδος. Το να τη βρεις είναι δική σας δουλειά.</li>
-      <li>Αν τον πιάσετε, παίρνετε νομίσματα για το κατάστημα, περισσότερα όσο τον ξεπερνάτε.</li>
+      <li>Νομίσματα για το κατάστημα: <b>1</b> κάθε μέρα, <b>2</b> αν πιάσετε τον στόχο, <b>3</b> με τον κουμπαρά 🐷. Όταν πιάνετε τον στόχο παίρνετε και έξτρα: +1 για κάθε 25% πάνω από τον στόχο (ως +5), +1 με το χρυσό καμπανάκι και +1 για κάθε επίπεδο χώρου.</li>
       <li>Αν αποτύχετε, το fund κλείνει: <b>στον τάφο</b>. Αν αντέξετε όλες τις μέρες: <b>στο βάθρο</b>, με τους καλύτερους traders στα σκαλοπάτια.</li>
-      <li>Με τη ρύθμιση «Μόνο με χρεωκοπία», ο χαμένος στόχος σημαίνει απλώς μηδέν νομίσματα· το fund κλείνει μόνο αν το ταμείο πέσει κάτω από ένα όριο του αρχικού κεφαλαίου (0–15%, προεπιλογή 10%, το ρυθμίζει ο host).</li>
+      <li>Με τη ρύθμιση «Μόνο με χρεωκοπία», ο χαμένος στόχος σημαίνει απλώς λιγότερα νομίσματα· το fund κλείνει μόνο αν το ταμείο πέσει κάτω από ένα όριο του αρχικού κεφαλαίου (0–15%, προεπιλογή 10%, το ρυθμίζει ο host).</li>
     </ul>
     <h3>Το κλείσιμο της αγοράς</h3>
     <p>Στο καμπανάκι του τέλους η κάμερα πάει μακριά και βλέπετε την ομάδα: αν η μέρα πήγε καλά, πάρτι (κομφετί, σαμπάνιες, και με πολύ καλή μέρα κόσμος και χορεύτριες)· αν βγήκε ζημιά, καβγάς (χαρτοπόλεμος, κούπες, ξύλο, πιστολίδι). Όσο μεγαλύτερος ο χώρος και το ταμείο, τόσο πιο μεγάλο το γλέντι ή ο χαμός.</p>
@@ -80,9 +80,9 @@ const BODY = {
     <ul>
       <li>Every day has a <b>profit quota</b> that grows day by day (and with the number of players).</li>
       <li>The quota is <b>always reachable</b>: every day the market offers at least one opportunity (buying only, up to 2 trades) worth 3× the quota on Easy, 2× on Normal, 1.5× on Hard. Sometimes a headline announces it, sometimes it only shows on the chart as a steady climb. Finding it is up to you.</li>
-      <li>Hit it and you earn coins for the shop, more the further you beat it.</li>
+      <li>Coins for the shop: <b>1</b> every day, <b>2</b> if you hit the quota, <b>3</b> with the piggy bank 🐷. When you hit the quota you also get extras: +1 for every 25% above the quota (up to +5), +1 with the golden bell and +1 for each premises level.</li>
       <li>Miss it and the fund closes: <b>into the grave</b>. Survive every day: <b>onto the podium</b>, with the best traders on the steps.</li>
-      <li>With the “Only when bankrupt” setting, a missed quota just means zero coins; the fund closes only if the balance drops below a threshold of the starting capital (0–15%, 10% by default, set by the host).</li>
+      <li>With the “Only when bankrupt” setting, a missed quota just means fewer coins; the fund closes only if the balance drops below a threshold of the starting capital (0–15%, 10% by default, set by the host).</li>
     </ul>
     <h3>The closing bell</h3>
     <p>At the closing bell the camera pulls back and you watch the team: a good day means a party (confetti, champagne, and on a great day a crowd and dancers); a loss means a fight (paper balls, mugs, fists, a shootout). The bigger the premises and the balance, the bigger the party or the mayhem.</p>
@@ -162,15 +162,15 @@ const CONTROLS = {
   el: `
     <h3>Χειρισμός</h3>
     <ul>
-      <li><b>Υπολογιστής:</b> κλικ στη σκηνή για να κοιτάς με το ποντίκι, <b>WASD</b> ή βελάκια για περπάτημα (Shift για τρέξιμο), <b>E</b> ανοίγει/κλείνει το τερματικό ή το κατάστημα, <b>Q</b> ανοίγει/κλείνει το κατάστημα από οπουδήποτε, <b>Esc</b> μενού, <b>T</b> ή <b>Enter</b> μίλα (έτοιμες φράσεις με φωνή ή δικό σου κείμενο, σε συννεφάκι πάνω από τον χαρακτήρα), <b>F</b> κωλοδάχτυλο στον συνάδελφο που κοιτάς, <b>R</b> όπλο με λεφτά, <b>E</b> τερματικό με τη σταθερή κάμερα.</li>
-      <li><b>Κινητό:</b> joystick αριστερά, σύρσιμο δεξιά για να κοιτάς, κουμπιά κάτω (🗣 μίλα, 🖕 κωλοδάχτυλο). Μέσα στο τερματικό τα ίδια κουμπιά είναι πάνω δεξιά.</li>
+      <li><b>Υπολογιστής:</b> κλικ στη σκηνή για να κοιτάς με το ποντίκι, <b>WASD</b> ή βελάκια για περπάτημα (Shift για τρέξιμο), <b>E</b> ανοίγει/κλείνει το τερματικό ή το κατάστημα, <b>Q</b> ανοίγει/κλείνει το κατάστημα από οπουδήποτε, <b>Esc</b> μενού, <b>T</b> ή <b>Enter</b> μίλα (έτοιμες φράσεις με φωνή ή δικό σου κείμενο, σε συννεφάκι πάνω από τον χαρακτήρα), <b>F</b> κωλοδάχτυλο στον συνάδελφο που κοιτάς, <b>R</b> όπλο με λεφτά, <b>E</b> τερματικό με την κάμερα από ψηλά. Η κάμερα από ψηλά είναι ελεύθερη: σύρσιμο για μετακίνηση, ροδέλα για ζουμ, δεξί κλικ και σύρσιμο για περιστροφή.</li>
+      <li><b>Κινητό:</b> με την κάμερα από ψηλά, ένα δάχτυλο μετακινεί, τσίμπημα για ζουμ, δύο δάχτυλα για περιστροφή. Στο πρώτο/τρίτο πρόσωπο: joystick αριστερά, σύρσιμο δεξιά για να κοιτάς, κουμπιά κάτω (🗣 μίλα, 🖕 κωλοδάχτυλο). Μέσα στο τερματικό τα ίδια κουμπιά είναι πάνω δεξιά.</li>
       <li>Την κάμερα (πρώτο πρόσωπο, τρίτο πρόσωπο, από ψηλά) και την ανάλυση τις αλλάζεις από το μενού.</li>
     </ul>`,
   en: `
     <h3>Controls</h3>
     <ul>
-      <li><b>Computer:</b> click the scene to look with the mouse, <b>WASD</b> or arrows to walk (Shift to run), <b>E</b> opens/closes the terminal or shop, <b>Q</b> opens/closes the shop from anywhere, <b>Esc</b> menu, <b>T</b> or <b>Enter</b> talk (ready phrases with a voice or your own text, in a bubble over your character), <b>F</b> middle finger to the colleague you are looking at, <b>R</b> money gun, <b>E</b> terminal with the fixed camera.</li>
-      <li><b>Phone:</b> joystick on the left, drag on the right to look, buttons at the bottom (🗣 talk, 🖕 middle finger). Inside the terminal the same buttons are at the top right.</li>
+      <li><b>Computer:</b> click the scene to look with the mouse, <b>WASD</b> or arrows to walk (Shift to run), <b>E</b> opens/closes the terminal or shop, <b>Q</b> opens/closes the shop from anywhere, <b>Esc</b> menu, <b>T</b> or <b>Enter</b> talk (ready phrases with a voice or your own text, in a bubble over your character), <b>F</b> middle finger to the colleague you are looking at, <b>R</b> money gun, <b>E</b> terminal with the camera from above. The camera from above is free: drag to move, wheel to zoom, right-click and drag to rotate.</li>
+      <li><b>Phone:</b> with the camera from above, one finger moves, pinch to zoom, two fingers to rotate. In first/third person: joystick on the left, drag on the right to look, buttons at the bottom (🗣 talk, 🖕 middle finger). Inside the terminal the same buttons are at the top right.</li>
       <li>Change the camera (first person, third person, overhead) and the resolution from the menu.</li>
     </ul>`,
 };

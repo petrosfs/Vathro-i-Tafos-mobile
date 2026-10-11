@@ -147,6 +147,9 @@ export interface PlayerState {
   stats: PlayerStats;
   /** Κέρδος/ζημιά της τρέχουσας μέρας από κλεισμένες θέσεις. */
   dayPnl: number;
+  /** Για τον πίνακα της μέρας (scoreboard): συναλλαγές και καλύτερη κλεισμένη θέση σήμερα. */
+  dayTrades?: number;
+  dayBest?: number;
   /** Διακοσμητικά στο γραφείο του. */
   decor: DecorId[];
   /** Προσωπικό πορτοφόλι (από τα bonus). */
@@ -413,6 +416,9 @@ export type Prices = (stock: number, tick: number) => number;
 
 export const MAX_POSITIONS = 8;
 export const START_COINS = 4;
+/** Νομίσματα κάθε μέρας: 1 πάντα, 2 με τον στόχο (3 με τον κουμπαρά, και τα έξτρα). */
+export const DAY_COINS = 1;
+export const QUOTA_COINS = 2;
 const LOG_KEEP = 25;
 
 export const feeRate = (s: GameState) => (s.perks.includes('fees') ? 0.001 : 0.005);
@@ -566,6 +572,7 @@ function closePosition(s: GameState, p: Position, price: number, tick: number, k
   if (pl) {
     pl.stats.pnl += pnl;
     pl.dayPnl += pnl;
+    pl.dayBest = Math.max(pl.dayBest ?? -Infinity, pnl);
     pl.stats.best = Math.max(pl.stats.best, pnl);
     pl.stats.worst = Math.min(pl.stats.worst, pnl);
     pl.stats.volume += p.qty * price;
@@ -592,6 +599,7 @@ function openPos(
   };
   s.positions.push(p);
   pl.stats.trades++;
+  pl.dayTrades = (pl.dayTrades ?? 0) + 1;
   pl.stats.volume += amount * lev;
   log(s, { tick, kind: 'open', who: uid, stock, side, amount });
   return true;
@@ -899,6 +907,8 @@ export function startDay(s: GameState, startAt: number) {
     if (p) {
       p.ready = !!p.bot;
       p.dayPnl = 0;
+      p.dayTrades = 0;
+      delete p.dayBest;
       if (p.bot) p.bot.last = -1;
     }
   }
@@ -994,10 +1004,12 @@ export function endDay(s: GameState, prices: Prices): DayResult {
   // με όριο 0% χρεωκοπία σημαίνει άδειο ταμείο
   let bankrupt = bankruptRule && (s.cash < (s.config.startCash * bankruptPct(s.config)) / 100 || s.cash <= 0);
   let saved = false;
-  let coins = 0;
+  // νομίσματα: 1 κάθε μέρα· 2 αν πιάσετε τον στόχο, 3 με τον κουμπαρά· και τα έξτρα (πάνω από τον στόχο,
+  // χρυσό καμπανάκι, επίπεδο χώρου) μόνο όταν πιάνετε τον στόχο
+  let coins = DAY_COINS;
   if (passed) {
-    coins = 3 + Math.max(0, Math.min(5, Math.floor((profit - s.quota) / (s.quota * 0.25))));
-    if (s.perks.includes('piggy')) coins += 2;
+    coins = QUOTA_COINS + Math.max(0, Math.min(5, Math.floor((profit - s.quota) / (s.quota * 0.25))));
+    if (s.perks.includes('piggy')) coins += 1;
     if (s.office.includes('goldbell')) coins += 1;
     coins += s.venue ?? 0;
   }
@@ -1012,7 +1024,7 @@ export function endDay(s: GameState, prices: Prices): DayResult {
   } else if (!passed && s.perks.includes('parachute') && s.cash > 0) {
     saved = true;
     s.perks = s.perks.filter((p) => p !== 'parachute');
-    coins = 1;
+    coins = DAY_COINS;
   }
   s.coins += coins;
   const r: DayResult = {

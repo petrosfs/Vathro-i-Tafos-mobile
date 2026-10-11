@@ -71,7 +71,9 @@
   πάνω από τα avatars.
 - **Χαρακτήρας** σε στυλ καρτούν (μεγάλο κεφάλι, χοντρά φρύδια, χέρια με δάχτυλα) με κοστούμι, γραβάτα, μαλλιά
   (και αλογοουρά ή καραφλός), μούσι, καπέλο, γυαλιά, μάτια, στόμα και έκφραση.
-- **Κουβέντα στο παιχνίδι**: έτοιμες φράσεις που ακούγονται με συνθετική φωνή ή δικό σου κείμενο, σε συννεφάκι πάνω
+- **Πίνακας της μέρας (scoreboard)** στον τοίχο: κέρδος/ζημιά, συναλλαγές και καλύτερη συναλλαγή του καθενός, με κατάταξη.
+- **Νομίσματα κάθε μέρα**: 1 πάντα, 2 με τον στόχο, 3 με τον κουμπαρά, και έξτρα όταν τον ξεπερνάτε.
+- **Κουβέντα στο παιχνίδι**: έτοιμες φράσεις (μισές στα αγγλικά) που ακούγονται με συνθετική φωνή ή δικό σου κείμενο, σε συννεφάκι πάνω
   από τον χαρακτήρα, χωρίς να κλείσεις το τερματικό. Και **κωλοδάχτυλο** στον συνάδελφο που κοιτάς.
 - **Τερματικό σε τρεις στήλες**: γράφημα, αγορά και θέσεις, ειδήσεις, όλα μαζί (στο κινητό με κυλιόμενη μπάρα
   ειδήσεων).
@@ -110,7 +112,7 @@
 αποθηκευμένη κατάσταση. Όποιος κάνει ανανέωση στη σελίδα, ξαναμπαίνει στο δωμάτιο.
 
 **Ελαφρύ.** Η αρχική φορτώνει χωρίς το Firebase, που κατεβαίνει μόνο όταν πας online. Στα κινητά η
-προεπιλογή είναι σταθερή κάμερα και ελαφριά γραφικά.
+προεπιλογή είναι η ελεύθερη κάμερα από ψηλά και ελαφριά γραφικά.
 
 **Ποιότητα.**
 - **67 τεστ** (Vitest), με προσομοιώσεις χιλιάδων τυχαίων κινήσεων που ελέγχουν ότι το ταμείο δεν γίνεται
@@ -195,7 +197,9 @@ phone or a computer, with no install and no account.
   the avatars.
 - **Cartoon character** (big head, bold brows, hands with fingers) with suit, tie, hair (including a ponytail or
   shaved bald), facial hair, hat, glasses, eyes, mouth and expression.
-- **In-game talk**: ready phrases spoken with a synthetic voice or your own text, in a bubble over your character,
+- **Daily scoreboard** on the wall: each player’s profit/loss, trades and best trade, ranked.
+- **Coins every day**: 1 always, 2 when you hit the quota, 3 with the piggy bank, plus extras for beating it.
+- **In-game talk**: ready phrases (half of them in English) spoken with a synthetic voice or your own text, in a bubble over your character,
   without closing the terminal. Plus a **middle finger** for the colleague you are looking at.
 - **Three-column terminal**: chart, trading and positions, news, all at once (on phones with a scrolling news bar).
 - **News TV** next to the board from the apartment office up, a whiteboard, diplomas, a notice board, a drop
@@ -231,7 +235,7 @@ player in the US plays on equal terms.
 saved state. Anyone who refreshes the page rejoins the room.
 
 **Lightweight.** The home screen loads without Firebase, which downloads only when you go online. Phones
-default to the fixed camera and light graphics.
+default to the free camera from above and light graphics.
 
 **Quality.**
 - **67 tests** (Vitest), with simulations of thousands of random moves checking that the balance never goes

@@ -11,6 +11,7 @@ import { GameController } from '../game/controller';
 import { crashIn, headline, newsTag, shownAt, visibleNews } from '../game/news';
 import type { Transport } from '../net/transport';
 import { FINGER, MONEY_EMOTE, World } from '../three/world';
+import { PLAYER_COLORS } from '../three/avatar';
 import { decodeSay, SayBar, speak } from '../ui/say';
 import type { BoardData } from '../three/textures';
 import { Terminal } from '../ui/terminal';
@@ -274,7 +275,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         if (now - m.at > 10000) continue;
         const d = decodeSay(m.text);
         world.say(m.uid, d.text, Date.now());
-        if (d.preset !== null) speak(d.text, m.uid);
+        if (d.preset !== null) speak(d.text, m.uid, d.en);
         // όταν το συννεφάκι δεν φαίνεται (πρώτο πρόσωπο για τον εαυτό σου, ανοιχτό πάνελ, μακριά), βγαίνει και ως μήνυμα
         const mine = m.uid === g.uid;
         const bubbleHidden = (!!panel && panel !== 'chat') || (mine ? world.view === 'first' : !world.isNear(m.uid));
@@ -564,7 +565,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         progressText: trading
           ? `${t('hud.profit')} ${signed(profit)} / ${t('hud.quota')} ${money(s.quota)}`
           : `${t('shop.next', { d: s.day })}: ${money(s.quota)}`,
-        headline: news ? `${newsTag(news)} · ${headline(news)}` : trading ? '' : `🛒 ${t('shop.title')}`,
+        headline: news ? `${newsTag(news)} · ${headline(news)}` : '',
         headlineColor: news ? (news.rumor ? '#C792EA' : news.dir > 0 ? '#3DDC84' : '#FF5C5C') : '#F5C542',
         news: trading
           ? visibleNews(s, tick).slice(-3).reverse().map((n) => ({
@@ -573,6 +574,23 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           }))
           : [],
       };
+    }
+
+    /** Ο πίνακας της μέρας: κέρδος/ζημιά (κλεισμένες και ανοιχτές θέσεις), συναλλαγές, καλύτερη συναλλαγή. */
+    function scoreData() {
+      const s = g.s!;
+      const rows = s.order.filter((u) => s.players[u]).map((u, i) => {
+        const p = s.players[u];
+        const open = s.positions.filter((q) => q.owner === u).reduce((a, q) => a + g.posPnl(q), 0);
+        const pnl = Math.round((p.dayPnl + (s.phase === 'trading' ? open : 0)) * 100) / 100;
+        const best = p.dayBest ?? null;
+        return {
+          name: g.name(u), color: PLAYER_COLORS[i % PLAYER_COLORS.length], pnl, trades: p.dayTrades ?? 0, best,
+          me: u === g.uid, pnlText: signed(Math.round(pnl)), bestText: best === null ? '—' : signed(Math.round(best)),
+        };
+      });
+      rows.sort((a, b) => b.pnl - a.pnl);
+      return { title: t('score.title', { d: s.day }), cols: [t('score.today'), t('score.trades'), t('score.best')] as [string, string, string], rows };
     }
 
     /** Μία οθόνη τη φορά (εναλλάξ), για να μη «κολλάει» το καρέ με πολλές ενημερώσεις υφών μαζί. */
@@ -623,6 +641,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           boardKey = key;
           world.setBoard(bd);
         }
+        world.setScoreboard(scoreData());
       }
     }, 250);
     let boardKey = '';

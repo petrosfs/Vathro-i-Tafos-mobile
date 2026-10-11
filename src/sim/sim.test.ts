@@ -271,7 +271,7 @@ describe('μηχανή', () => {
 });
 
 describe('κανόνας τέλους', () => {
-  it('«μόνο με χρεωκοπία»: ο χαμένος στόχος δεν τελειώνει την παρτίδα, ούτε δίνει νομίσματα', () => {
+  it('«μόνο με χρεωκοπία»: ο χαμένος στόχος δεν τελειώνει την παρτίδα και δίνει μόνο 1 νόμισμα', () => {
     const s = game(1, { ...DEFAULT_CONFIG, endRule: 'bankrupt' });
     const m = new MarketCache();
     startDay(s, 0);
@@ -279,7 +279,7 @@ describe('κανόνας τέλους', () => {
     const r = endDay(s, m.prices(s));
     expect(r.passed).toBe(false);
     expect(s.phase).toBe('shop');
-    expect(s.coins).toBe(coins);
+    expect(s.coins).toBe(coins + 1);
   });
 
   it('«μόνο με χρεωκοπία»: τέλος όταν το ταμείο πέσει κάτω από το 10%, εκτός αν υπάρχει αλεξίπτωτο', () => {

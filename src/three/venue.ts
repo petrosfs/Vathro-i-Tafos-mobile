@@ -963,38 +963,60 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
   };
   const alu = lambert('#B9BEC6');
   if (lv >= 1) {
-    // ασπροπίνακας με μουτζούρες από τη σύσκεψη
-    inside.box(alu, 2.3, 1.3, 0.04, -6.5, 1.65, wz + 0.01);
-    plaque(painted(2.2, 1.2, 160, (c, W, H) => {
+    // ασπροπίνακας με ροδάκια (δίπλα στον δυτικό τοίχο), με μουτζούρες από τη σύσκεψη
+    const wb = new THREE.Group();
+    wb.position.set(-11.0, 0, -0.4);
+    wb.rotation.y = Math.PI / 2;
+    group.add(wb);
+    const wbBox = (m: THREE.Material, sx: number, sy: number, sz: number, x: number, y: number, z: number) => {
+      const bm = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), m);
+      bm.position.set(x, y, z);
+      bm.castShadow = shadows;
+      wb.add(bm);
+    };
+    wbBox(alu, 2.3, 1.3, 0.04, 0, 1.65, 0);
+    for (const x of [-1.08, 1.08]) {
+      wbBox(alu, 0.05, 1.05, 0.05, x, 0.52, 0);
+      wbBox(lambert('#3A3F48'), 0.06, 0.04, 0.62, x, 0.04, 0);
+    }
+    colliders.push({ minX: -11.35, maxX: -10.65, minZ: -1.6, maxZ: 0.8 });
+    const wbFace = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.2), painted(2.2, 1.2, 160, (c, W, H) => {
       c.fillStyle = '#FAFBFC';
       c.fillRect(0, 0, W, H);
       c.lineCap = 'round';
+      // γράφημα με βέλος προς τα πάνω (αριστερά κάτω)
       c.strokeStyle = '#1F5FBF';
-      c.lineWidth = 6;
+      c.lineWidth = 5;
       c.beginPath();
-      c.moveTo(30, H - 40);
-      [[80, H - 70], [120, H - 55], [170, H - 110], [210, H - 95], [260, H - 150]].forEach(([x, y]) => c.lineTo(x, y));
+      c.moveTo(18, H - 22);
+      [[50, H - 40], [78, H - 32], [108, H - 70], [134, H - 58], [160, H - 98]].forEach(([x, y]) => c.lineTo(x, y));
       c.stroke();
       c.beginPath();
-      c.moveTo(240, H - 152);
-      c.lineTo(262, H - 150);
-      c.lineTo(255, H - 128);
+      c.moveTo(144, H - 100);
+      c.lineTo(162, H - 99);
+      c.lineTo(158, H - 80);
       c.stroke();
-      c.font = '700 44px "Comic Sans MS", "Marker Felt", cursive';
+      const hand = '"Comic Sans MS", "Marker Felt", "Segoe Print", cursive';
+      c.textBaseline = 'alphabetic';
+      c.font = `700 38px ${hand}`;
       c.fillStyle = '#C62828';
-      c.fillText('BUY!!', 34, 62);
+      c.fillText('BUY!!', 16, 46);
+      // λίστα με τον «σχεδιασμό»
       c.fillStyle = '#1B1B1B';
-      c.font = '600 28px "Comic Sans MS", "Marker Felt", cursive';
-      c.fillText('ΣΤΟΧΟΣ ↑↑↑', 190, 48);
-      c.fillText('1) Αγόρασε φτηνά', W - 240, H - 110);
-      c.fillText('2) Πούλα ακριβά', W - 240, H - 76);
-      c.fillText('3) $$$', W - 240, H - 42);
+      c.font = `600 19px ${hand}`;
+      const lx = W - 168;
+      ['1) Αγόρασε φτηνά', '2) Πούλα ακριβά', '3) $$$'].forEach((tx, i) => c.fillText(tx, lx, 70 + i * 30));
       c.strokeStyle = '#2E7D32';
-      c.lineWidth = 4;
-      c.strokeRect(W - 254, H - 140, 232, 118);
-    }), 2.2, 1.2, -6.5, 1.65);
-    inside.box(alu, 1.6, 0.04, 0.08, -6.5, 1.0, wz + 0.05);
-    for (const [x, col] of [[-6.9, '#1F5FBF'], [-6.7, '#C62828'], [-6.5, '#2E7D32']] as [number, string][]) inside.box(lambert(col), 0.12, 0.025, 0.025, x, 1.035, wz + 0.06);
+      c.lineWidth = 3;
+      c.strokeRect(lx - 10, 44, 166, 108);
+      c.fillStyle = '#2E7D32';
+      c.font = `700 18px ${hand}`;
+      c.fillText('ΣΤΟΧΟΣ ↑↑↑', lx, 30);
+    }));
+    wbFace.position.set(0, 1.65, 0.025);
+    wb.add(wbFace);
+    wbBox(alu, 1.6, 0.04, 0.08, 0, 1.0, 0.05);
+    for (const [x, col] of [[-0.4, '#1F5FBF'], [-0.2, '#C62828'], [0, '#2E7D32']] as [number, string][]) wbBox(lambert(col), 0.12, 0.025, 0.025, x, 1.035, 0.06);
     // διπλώματα σε κορνίζες
     const dip = painted(0.42, 0.32, 200, (c, W, H) => {
       c.fillStyle = '#FFF8E6';
@@ -1119,7 +1141,6 @@ export function buildVenue(level: number, shadows: boolean): VenueBuild {
   group.add(door);
   // οι τοίχοι, η οροφή και τα δοκάρια δεν ρίχνουν σκιά: ο ήλιος είναι πάνω από τη σκεπή και θα σκοτείνιαζε
   // όλο τον χώρο με λοξές σκιές και ρίγες· σκιές ρίχνουν μόνο τα έπιπλα και οι χαρακτήρες
-  void shadows;
   inside.build(group, { receive: true, cast: false });
   top.build(ceilingGroup);
   out.build(group);
