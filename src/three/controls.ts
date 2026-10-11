@@ -1,6 +1,7 @@
 // Κίνηση σε πρώτο πρόσωπο: πληκτρολόγιο και ποντίκι στον υπολογιστή, joystick και σύρσιμο στο κινητό.
 import * as THREE from 'three';
 import { ROOM, type Box2 } from './office';
+import { JUMP_MS, jumpHeight } from './avatar';
 
 const RADIUS = 0.3;
 const SPEED = 3.4;
@@ -24,6 +25,11 @@ export class FirstPerson {
   onInteract: () => void = () => {};
   onEscape: () => void = () => {};
   private releasing = false;
+  /** Τρίτο πρόσωπο στον υπολογιστή: η κάμερα γυρίζει με κρατημένο δεξί κλικ ή ροδέλα (χωρίς κλείδωμα ποντικιού). */
+  third = false;
+  private dragId = -1;
+  private jumpAt = -1e12;
+  onJump: () => void = () => {};
 
   constructor(private canvas: HTMLCanvasElement, private sensitivity: () => number) {
     this.joyEl = document.createElement('div');
@@ -41,12 +47,48 @@ export class FirstPerson {
       if (isTyping(e)) return;
       this.keys.add(e.code);
       if (e.code === 'KeyE' && this.enabled) this.onInteract();
+      if (e.code === 'Space' && this.enabled) {
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        e.preventDefault();
+        if (!e.repeat) this.onJump();
+      }
     });
-    on(window, 'keyup', (e: KeyboardEvent) => this.keys.delete(e.code));
+    on(window, 'keyup', (e: KeyboardEvent) => {
+      this.keys.delete(e.code);
+      // το Space να μην «πατάει» και το κουμπί που έχει την εστίαση
+      if (e.code === 'Space' && this.enabled && !isTyping(e)) e.preventDefault();
+    });
     on(window, 'blur', () => this.keys.clear());
     on(canvas, 'click', () => {
-      if (this.enabled && !isCoarse() && document.pointerLockElement !== canvas) canvas.requestPointerLock?.();
+      if (this.enabled && !this.third && !isCoarse() && document.pointerLockElement !== canvas) canvas.requestPointerLock?.();
     });
+    // τρίτο πρόσωπο: δεξί κλικ ή ροδέλα κρατημένα → γυρίζει η κάμερα
+    on(canvas, 'contextmenu', (e: MouseEvent) => {
+      if (this.third) e.preventDefault();
+    });
+    on(canvas, 'pointerdown', (e: PointerEvent) => {
+      if (!this.third || !this.enabled || e.pointerType === 'touch' || (e.button !== 2 && e.button !== 1)) return;
+      e.preventDefault();
+      this.dragId = e.pointerId;
+      canvas.setPointerCapture?.(e.pointerId);
+      canvas.style.cursor = 'grabbing';
+    });
+    // η ροδέλα πατημένη στα Windows ανοίγει «αυτόματη κύλιση»
+    on(canvas, 'mousedown', (e: MouseEvent) => {
+      if (this.third && e.button === 1) e.preventDefault();
+    });
+    on(canvas, 'pointermove', (e: PointerEvent) => {
+      if (e.pointerId !== this.dragId || !this.enabled) return;
+      this.turn(e.movementX, e.movementY, 0.004);
+    });
+    const endDrag = (e: PointerEvent) => {
+      if (e.pointerId !== this.dragId) return;
+      this.dragId = -1;
+      canvas.releasePointerCapture?.(e.pointerId);
+      canvas.style.cursor = '';
+    };
+    on(canvas, 'pointerup', endDrag);
+    on(canvas, 'pointercancel', endDrag);
     // Με κλειδωμένο ποντίκι ο browser κρατά το Esc για τον εαυτό του: όταν ξεκλειδώνει μόνο του, ανοίγουμε το μενού.
     on(document, 'pointerlockchange', () => {
       if (document.pointerLockElement !== canvas && this.enabled && !this.releasing) this.onEscape();
@@ -112,9 +154,33 @@ export class FirstPerson {
     this.pitch = Math.max(-1.3, Math.min(1.2, this.pitch - dy * s));
   }
 
+  /** Πρώτο ή τρίτο πρόσωπο (στο τρίτο δεν κλειδώνει το ποντίκι). */
+  setThird(v: boolean) {
+    this.third = v;
+    if (v && document.pointerLockElement === this.canvas) {
+      this.releasing = true;
+      document.exitPointerLock?.();
+    }
+  }
+
+  /** Ξεκινά άλμα αν πατάει στο πάτωμα· true αν ξεκίνησε. */
+  jump(now = Date.now()): boolean {
+    if (now - this.jumpAt < JUMP_MS) return false;
+    this.jumpAt = now;
+    return true;
+  }
+
+  /** Ύψος του άλματος τώρα (για την κάμερα). */
+  jumpY(now = Date.now()): number {
+    const k = (now - this.jumpAt) / JUMP_MS;
+    return k > 0 && k < 1 ? jumpHeight(k) : 0;
+  }
+
   setEnabled(v: boolean) {
     this.enabled = v;
     if (!v) {
+      this.dragId = -1;
+      this.canvas.style.cursor = '';
       this.keys.clear();
       this.joy = { x: 0, y: 0, id: -1, ox: 0, oy: 0 };
       this.joyEl.hidden = true;
@@ -162,7 +228,7 @@ export class FirstPerson {
   }
 
   apply(camera: THREE.PerspectiveCamera) {
-    camera.position.set(this.pos.x, EYE, this.pos.z);
+    camera.position.set(this.pos.x, EYE + this.jumpY(), this.pos.z);
     camera.rotation.order = 'YXZ';
     camera.rotation.set(this.pitch, this.yaw, 0);
   }

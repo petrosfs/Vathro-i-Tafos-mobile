@@ -12,6 +12,9 @@ export const BEARDS = 5;
 export const EYES = 4;
 export const MOUTHS = 5;
 export const BROWS = 4;
+export const FACES = 3;
+/** Χρώματα για καπέλα και σκελετούς γυαλιών. */
+export const ACC_COLORS = ['#141414', '#F2F2F2', '#C43A3A', '#E07A9B', '#7E3FB2', '#2B5DB2', '#2E8B57', '#E8B923', '#B9BEC6', '#7A3B1E'];
 
 export interface Profile {
   name: string;
@@ -26,6 +29,7 @@ export function randomLook(rnd: () => number = Math.random): Look {
     suit: pick(SUITS.length), skin: pick(SKINS.length), hair: pick(HAIR_STYLES), hairColor: pick(HAIR_COLORS.length),
     hat: rnd() < 0.6 ? 0 : 1 + pick(HATS - 1), tie: pick(TIES.length), glasses: rnd() < 0.6 ? 0 : 1 + pick(GLASSES - 1),
     eyes: pick(EYES), mouth: pick(MOUTHS), brows: pick(BROWS), beard: rnd() < 0.55 ? 0 : 1 + pick(BEARDS - 1),
+    face: pick(FACES), build: 25 + Math.round(rnd() * 50), hatColor: -1, glassColor: -1,
   };
 }
 
@@ -35,10 +39,16 @@ export function sanitizeLook(l: Partial<Look> | undefined): Look {
     const x = Math.floor(Number(v));
     return Number.isFinite(x) && x >= 0 && x < n ? x : 0;
   };
+  const col = (v: unknown) => {
+    const x = Math.floor(Number(v));
+    return Number.isFinite(x) && x >= 0 && x < ACC_COLORS.length ? x : -1;
+  };
   return {
     suit: c(l?.suit, SUITS.length), skin: c(l?.skin, SKINS.length), hair: c(l?.hair, HAIR_STYLES),
     hairColor: c(l?.hairColor, HAIR_COLORS.length), hat: c(l?.hat, HATS), tie: c(l?.tie, TIES.length),
     glasses: c(l?.glasses, GLASSES), eyes: c(l?.eyes, EYES), mouth: c(l?.mouth, MOUTHS), brows: c(l?.brows, BROWS), beard: c(l?.beard, BEARDS),
+    face: c(l?.face, FACES), build: l?.build === undefined ? 50 : c(l.build, 101),
+    hatColor: col(l?.hatColor), glassColor: col(l?.glassColor),
   };
 }
 

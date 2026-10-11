@@ -2,7 +2,7 @@
 // γόνατα. Οι κινήσεις (στέκεται, περπατά, κάθεται, πανηγυρίζει, πέφτει) αλλάζουν ομαλά από τη μία στην άλλη.
 import * as THREE from 'three';
 import type { Look } from '../sim/engine';
-import { HAIR_COLORS, SKINS, SUITS, TIES } from '../profile';
+import { ACC_COLORS, HAIR_COLORS, SKINS, SUITS, TIES } from '../profile';
 import { bubbleTexture, nameTagTexture, speechTexture } from './textures';
 import { ModelRig, modelsReady } from './modelRig';
 
@@ -14,7 +14,6 @@ const geo = {
   cyl: new THREE.CylinderGeometry(1, 1, 1, 20),
   cone: new THREE.ConeGeometry(1, 1, 8),
   torus: new THREE.TorusGeometry(1, 0.18, 8, 24),
-  smile: new THREE.TorusGeometry(1, 0.12, 6, 14, Math.PI),
   thigh: new THREE.CapsuleGeometry(0.078, 0.34, 6, 14),
   shin: new THREE.CapsuleGeometry(0.066, 0.3, 6, 14),
   upperArm: new THREE.CapsuleGeometry(0.062, 0.22, 6, 14),
@@ -81,6 +80,141 @@ export function mat(color: string, emissive = 0): THREE.Material {
     matCache.set(k, m);
   }
   return matCache.get(k)!;
+}
+
+const HEAD_Z = 1.045;
+const HEAD_R = 0.158;
+const HEAD_TOP = 0.185;
+/** Ακτίνα του κεφαλιού σε ύψος y (πάνω ελλειψοειδές, κάτω ανάλογα με το σχήμα: 1 αβγό, 2 φαρδύ σαγόνι, 3 στρογγυλό). */
+function skullR(style: number, y: number): number {
+  if (y >= 0) return HEAD_R * Math.sqrt(Math.max(0, 1 - (y / HEAD_TOP) ** 2));
+  if (style === 1) return HEAD_R * Math.sqrt(Math.max(0, 1 - (y / 0.215) ** 2));
+  if (style === 2) return HEAD_R * 1.03 * Math.max(0, 1 - Math.abs(y / 0.2) ** 3.2) ** (1 / 3.2);
+  return HEAD_R * Math.sqrt(Math.max(0, 1 - (y / 0.19) ** 2));
+}
+const skullBottom = (style: number) => (style === 1 ? -0.215 : style === 2 ? -0.2 : -0.19);
+const skullCache = new Map<number, THREE.BufferGeometry>();
+function skullGeo(style: number): THREE.BufferGeometry {
+  if (!skullCache.has(style)) {
+    const pts: THREE.Vector2[] = [];
+    const yb = skullBottom(style);
+    const n = 40;
+    for (let i = 0; i <= n; i++) {
+      // πυκνότερα σημεία κοντά στους πόλους
+      const a = -Math.PI / 2 + (i / n) * Math.PI;
+      const y = a < 0 ? Math.sin(a) * -yb : Math.sin(a) * HEAD_TOP;
+      pts.push(new THREE.Vector2(i === 0 || i === n ? 0 : skullR(style, y), y));
+    }
+    const g = new THREE.LatheGeometry(pts, 32);
+    g.computeVertexNormals();
+    skullCache.set(style, g);
+  }
+  return skullCache.get(style)!;
+}
+/** Πού βρίσκεται η επιφάνεια του προσώπου μπροστά σε ύψος y και πόσο γέρνει. */
+function faceAt(style: number, y: number) {
+  const z = skullR(style, y) * HEAD_Z;
+  const z2 = skullR(style, y - 0.004) * HEAD_Z;
+  return { z, tilt: Math.atan2(z - z2, 0.004) };
+}
+
+/** Επίπεδο σχήμα που «τυλίγεται» στην καμπύλη του προσώπου (σαν ζωγραφιστό). */
+function wrapFlat(g: THREE.BufferGeometry, r: number): THREE.BufferGeometry {
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i);
+    p.setZ(i, p.getZ(i) + Math.sqrt(Math.max(0, r * r - x * x)) - r);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+function shapeGeo(draw: (s: THREE.Shape) => void, holes: ((p: THREE.Path) => void)[] = []): THREE.ShapeGeometry {
+  const s = new THREE.Shape();
+  draw(s);
+  for (const hd of holes) {
+    const p = new THREE.Path();
+    hd(p);
+    s.holes.push(p);
+  }
+  return new THREE.ShapeGeometry(s, 16);
+}
+/** Ζωγραφιστά στόματα: χαμόγελο, σοβαρό, πλατύ χαμόγελο με δόντια, στραβό χαμόγελο, «Ο». */
+const flatMouth = new Map<number, THREE.BufferGeometry[]>();
+function flatMouthGeo(kind: number): THREE.BufferGeometry[] {
+  if (!flatMouth.has(kind)) {
+    let out: THREE.BufferGeometry[];
+    if (kind === 1) {
+      out = [shapeGeo((s) => {
+        s.moveTo(-0.028, 0.004);
+        s.quadraticCurveTo(0, 0.0, 0.028, 0.004);
+        s.quadraticCurveTo(0.031, -0.002, 0.026, -0.004);
+        s.quadraticCurveTo(0, -0.008, -0.026, -0.004);
+        s.quadraticCurveTo(-0.031, -0.002, -0.028, 0.004);
+      })];
+    } else if (kind === 2) {
+      // ανοιχτό γέλιο: σκούρο μισοφέγγαρο με δόντια πάνω
+      out = [
+        shapeGeo((s) => {
+          s.moveTo(-0.042, 0.012);
+          s.quadraticCurveTo(0, 0.006, 0.042, 0.012);
+          s.quadraticCurveTo(0.036, -0.04, 0, -0.04);
+          s.quadraticCurveTo(-0.036, -0.04, -0.042, 0.012);
+        }),
+        shapeGeo((s) => {
+          s.moveTo(-0.036, 0.008);
+          s.quadraticCurveTo(0, 0.003, 0.036, 0.008);
+          s.lineTo(0.032, -0.004);
+          s.quadraticCurveTo(0, -0.008, -0.032, -0.004);
+          s.lineTo(-0.036, 0.008);
+        }),
+      ];
+    } else if (kind === 4) {
+      out = [shapeGeo((s) => s.absellipse(0, -0.006, 0.014, 0.019, 0, Math.PI * 2, false, 0))];
+    } else {
+      // χαμόγελο (ή στραβό χαμόγελο): μισοφέγγαρο που λεπταίνει στις άκρες
+      const w = kind === 3 ? 0.03 : 0.036;
+      out = [shapeGeo((s) => {
+        s.moveTo(-w, 0.008);
+        s.quadraticCurveTo(0, -0.03, w, 0.008);
+        s.quadraticCurveTo(w + 0.002, 0.012, w - 0.004, 0.009);
+        s.quadraticCurveTo(0, -0.018, -w + 0.004, 0.009);
+        s.quadraticCurveTo(-w - 0.002, 0.012, -w, 0.008);
+      })];
+    }
+    flatMouth.set(kind, out.map((g) => wrapFlat(g, 0.15)));
+  }
+  return flatMouth.get(kind)!;
+}
+
+/** Διάρκεια και ύψος άλματος. */
+export const JUMP_MS = 620;
+export const jumpHeight = (k: number) => 0.45 * 4 * k * (1 - k);
+
+const BEARD_OUT = 1.07;
+const STUBBLE_OUT = 1.015;
+/** Γένια: «κέλυφος» που ακολουθεί το κάτω μισό του προσώπου (μόνο μπροστά και στα πλάγια). */
+const beardCache = new Map<string, THREE.BufferGeometry>();
+function beardGeo(style: number, out: number, phi = 1.9, top = -0.015): THREE.BufferGeometry {
+  const k = `${style}|${out}|${phi}|${top}`;
+  if (!beardCache.has(k)) {
+    const pts: THREE.Vector2[] = [];
+    const yb = skullBottom(style) - 0.006;
+    const n = 16;
+    for (let i = 0; i <= n; i++) {
+      const y = yb + (i / n) * (top - yb);
+      pts.push(new THREE.Vector2(i === 0 ? 0 : skullR(style, Math.max(y, skullBottom(style) + 0.002)) * out + 0.002, y));
+    }
+    const g = new THREE.LatheGeometry(pts, Math.max(6, Math.round(24 * phi / 1.9)), -phi, phi * 2);
+    g.scale(1, 1, HEAD_Z);
+    g.computeVertexNormals();
+    beardCache.set(k, g);
+  }
+  return beardCache.get(k)!;
+}
+
+/** Χρώμα αξεσουάρ από την παλέτα (null: το αρχικό του). */
+function accColor(i: number | undefined): string | null {
+  return i !== undefined && i >= 0 && i < ACC_COLORS.length ? ACC_COLORS[i] : null;
 }
 
 const LENS = new THREE.MeshBasicMaterial({ color: '#CFE8FF', transparent: true, opacity: 0.35, depthWrite: false });
@@ -250,10 +384,11 @@ export class Avatar {
 
   /** Σώμα από 3D μοντέλο (αν φορτώθηκε)· αλλιώς ο απλός χαρακτήρας από σχήματα. */
   private rig: ModelRig | null = null;
-  private lastAnim: Anim = 'idle';
+  private lastAnim: Anim | 'jump' = 'idle';
 
   constructor(look: Look, name: string, readonly color: string, opts: { swat?: boolean } = {}) {
     const useModel = modelsReady();
+    const fat = ((look.build ?? 50) - 50) / 50;
     const suit = SUITS[look.suit] ?? SUITS[0];
     const suitDark = shade(suit, 0.72);
     this.suitHex = [new THREE.Color(suit).getHex(), new THREE.Color(suitDark).getHex()];
@@ -281,10 +416,10 @@ export class Avatar {
       this.body.add(hip);
     }
     if (!useModel) {
-      this.body.add(part(geo.pelvis, suitM, 1, 1, 0.8, 0, 0.88, 0).rotateZ(Math.PI / 2));
+      this.body.add(part(geo.pelvis, suitM, 1, 1 + fat * 0.25, 0.8 * (1 + fat * 0.4), 0, 0.88, 0).rotateZ(Math.PI / 2));
       // ---- κορμός (στρίβει λίγο στο περπάτημα)
       this.spine.position.set(0, 0.9, 0);
-      const torso = part(geo.torso, suitM, 1, 1, 0.62, 0, 0.29, 0);
+      const torso = part(geo.torso, suitM, 1 + fat * 0.3, 1, 0.62 * (1 + fat * 0.5), 0, 0.29, 0);
       this.spine.add(torso);
       // ζώνη με αγκράφα
       this.spine.add(part(geo.cyl, '#141414', 0.183, 0.035, 0.183 * 0.64, 0, 0.03, 0));
@@ -323,8 +458,8 @@ export class Avatar {
     // λίγο μεγαλύτερο κεφάλι: πιο «καρτουνίστικες» αναλογίες
     this.head.position.set(0, 0.84, 0.005);
     this.head.scale.setScalar(1.3);
-    this.head.add(part(geo.sphere, skin, 0.158, 0.185, 0.165));
-    this.head.add(part(geo.sphere, skin, 0.12, 0.08, 0.12, 0, -0.1, 0.03));
+    this.faceStyle = 1 + Math.max(0, Math.min(2, look.face ?? 0));
+    this.head.add(part(skullGeo(this.faceStyle), skin, 1, 1, HEAD_Z));
     for (const sx of [-1, 1]) {
       // αυτιά
       this.head.add(part(geo.sphere, skinDark, 0.03, 0.05, 0.02, sx * 0.157, 0.0, 0.0));
@@ -359,15 +494,15 @@ export class Avatar {
     this.head.add(part(geo.cone, skinDark, 0.022, 0.05, 0.022, 0, -0.025, 0.168).rotateX(Math.PI / 2));
     const beard = look.beard ?? 0;
     this.addBeard(beard, skin, hairC);
-    this.addMouth(look.mouth ?? 0, beard === 3 || beard === 4 ? 0.022 : 0);
+    this.addMouth(look.mouth ?? 0, beard === 3 ? BEARD_OUT : beard === 4 ? STUBBLE_OUT : 1);
     this.addHair(look.hair, hairC);
-    this.addHat(look.hat);
-    this.addGlasses(look.glasses);
+    this.addHat(look.hat, accColor(look.hatColor));
+    this.addGlasses(look.glasses, accColor(look.glassColor));
     if (useModel) {
       // σώμα από το 3D μοντέλο· το κεφάλι ακολουθεί το κόκαλο του κεφαλιού
       const suitLam = new THREE.MeshLambertMaterial({ color: suit });
       this.suitMats.add(suitLam);
-      this.rig = new ModelRig(this.body, this.head, { suit: suitLam, tie, skin }, !!opts.swat);
+      this.rig = new ModelRig(this.body, this.head, { suit: suitLam, tie, skin }, !!opts.swat, fat);
       this.head.scale.setScalar(1.32);
       this.head.add(part(geo.cyl, skin, 0.052, 0.12, 0.052, 0, -0.2, -0.01));
       this.body.add(this.head);
@@ -385,62 +520,54 @@ export class Avatar {
     this.group.add(this.tag);
   }
 
-  /** Στόμα: χαμόγελο, σοβαρό, πλατύ χαμόγελο, στραβό χαμόγελο, «Ο». */
+  /** Σχήμα κεφαλιού (1 αβγό, 2 φαρδύ σαγόνι, 3 στρογγυλό). */
+  private faceStyle = 1;
+
   /** Μούσι: μουστάκι, γενάκι, γένια ή αξύριστος. */
   private addBeard(kind: number, skin: string, c: string) {
     const h = this.head;
+    const st = this.faceStyle;
     const dark = shade(c, 0.85);
     if (kind === 1 || kind === 2) {
-      const m = part(geo.thigh, dark, 0.32, 0.17, 0.2, 0, -0.052, 0.152, false);
+      const y = -0.054;
+      const m = part(geo.thigh, dark, 0.32, 0.17, 0.2, 0, y, faceAt(st, y).z - 0.004, false);
       m.rotation.z = Math.PI / 2;
       h.add(m);
     }
     if (kind === 2) {
-      // γενάκι: μουστάκι που κατεβαίνει στο σαγόνι
-      for (const sx of [-1, 1]) {
-        const side = part(geo.box, dark, 0.016, 0.07, 0.02, sx * 0.042, -0.09, 0.142, false);
-        side.rotation.x = -0.25;
-        h.add(side);
-      }
-      h.add(part(geo.sphere, dark, 0.045, 0.04, 0.03, 0, -0.135, 0.125, false));
+      // γενάκι: «μπάλωμα» στο πιγούνι, κάτω από το στόμα
+      h.add(new THREE.Mesh(beardGeo(st, 1.04, 0.42, -0.1), mat(dark)));
     }
     if (kind === 3) {
-      h.add(part(geo.sphere, dark, 0.158, 0.105, 0.16, 0, -0.1, 0.012));
-      for (const sx of [-1, 1]) h.add(part(geo.box, dark, 0.02, 0.1, 0.05, sx * 0.152, -0.03, 0.03, false));
-      const m = part(geo.thigh, shade(c, 0.75), 0.34, 0.17, 0.22, 0, -0.05, 0.168, false);
+      h.add(new THREE.Mesh(beardGeo(st, BEARD_OUT), mat(dark)));
+      const y = -0.054;
+      const m = part(geo.thigh, shade(c, 0.75), 0.34, 0.17, 0.22, 0, y, faceAt(st, y).z * BEARD_OUT, false);
       m.rotation.z = Math.PI / 2;
       h.add(m);
     }
     if (kind === 4) {
       const mix = new THREE.Color(skin).lerp(new THREE.Color(c), 0.35);
-      h.add(part(geo.sphere, `#${mix.getHexString()}`, 0.156, 0.1, 0.158, 0, -0.098, 0.014));
+      h.add(new THREE.Mesh(beardGeo(st, STUBBLE_OUT), mat(`#${mix.getHexString()}`)));
     }
   }
 
-  private addMouth(kind: number, dz = 0) {
-    const h = new THREE.Group();
-    h.position.z = dz;
-    this.head.add(h);
-    const lip = '#5A2A22';
-    if (kind === 1) {
-      h.add(part(geo.box, lip, 0.05, 0.009, 0.01, 0, -0.072, 0.152, false));
-    } else if (kind === 2) {
-      const open = part(geo.half, lip, 0.045, 0.032, 0.012, 0, -0.062, 0.15, false);
-      open.rotation.z = Math.PI;
-      h.add(open);
-      h.add(part(geo.box, '#FFFFFF', 0.07, 0.012, 0.012, 0, -0.066, 0.155, false));
-    } else if (kind === 3) {
-      const m = part(geo.smile, lip, 0.03, 0.022, 0.02, 0.014, -0.07, 0.15, false);
-      m.rotation.z = Math.PI + 0.45;
-      h.add(m);
-    } else if (kind === 4) {
-      h.add(part(geo.torus, lip, 0.016, 0.02, 0.03, 0, -0.078, 0.152, false));
-      h.add(part(geo.sphere, '#2A1210', 0.013, 0.017, 0.006, 0, -0.078, 0.15, false));
-    } else {
-      const m = part(geo.smile, lip, 0.036, 0.026, 0.02, 0, -0.07, 0.15, false);
-      m.rotation.z = Math.PI;
-      h.add(m);
+  /** Ζωγραφιστό στόμα (out: πόσο πιο έξω από το δέρμα, όταν υπάρχουν γένια). */
+  private addMouth(kind: number, out = 1) {
+    const y = -0.078;
+    const f = faceAt(this.faceStyle, y);
+    const m = new THREE.Group();
+    m.position.set(kind === 3 ? 0.012 : 0, y, f.z * out + (out > 1 ? 0.005 : 0.0015));
+    m.rotation.set(f.tilt, 0, kind === 3 ? 0.22 : 0);
+    m.scale.setScalar(1.3);
+    const [a, b] = flatMouthGeo(kind);
+    // με γένια τα χείλη πιο ανοιχτά, για να ξεχωρίζουν
+    m.add(new THREE.Mesh(a, mat(out > 1.03 ? '#B8645A' : kind === 1 ? '#6A3328' : '#4A1C17')));
+    if (b) {
+      const mb = new THREE.Mesh(b, mat('#FFFFFF'));
+      mb.position.z = 0.0015;
+      m.add(mb);
     }
+    this.head.add(m);
   }
 
   private addHair(style: number, c: string) {
@@ -477,50 +604,75 @@ export class Avatar {
     }
   }
 
-  private addHat(kind: number) {
+  /** Καπέλο (c: χρώμα από την παλέτα, αλλιώς το αρχικό). */
+  private addHat(kind: number, c: string | null) {
     const h = this.head;
     if (kind === 1) {
-      h.add(part(geo.half, '#C43A3A', 0.178, 0.15, 0.185, 0, 0.07, 0));
-      h.add(part(geo.cyl, '#A82E2E', 0.12, 0.012, 0.09, 0, 0.075, 0.17));
-      h.add(part(geo.sphere, '#A82E2E', 0.02, 0.012, 0.02, 0, 0.22, 0));
+      const m = c ?? '#C43A3A';
+      h.add(part(geo.half, m, 0.178, 0.15, 0.185, 0, 0.07, 0));
+      h.add(part(geo.cyl, shade(m, 0.85), 0.12, 0.012, 0.09, 0, 0.075, 0.17));
+      h.add(part(geo.sphere, shade(m, 0.85), 0.02, 0.012, 0.02, 0, 0.22, 0));
     } else if (kind === 2) {
-      h.add(part(geo.cyl, '#141414', 0.135, 0.28, 0.135, 0, 0.3, 0));
-      h.add(part(geo.cyl, '#141414', 0.24, 0.015, 0.24, 0, 0.16, 0));
-      h.add(part(geo.cyl, '#8B1E1E', 0.137, 0.045, 0.137, 0, 0.19, 0));
+      const m = c ?? '#141414';
+      h.add(part(geo.cyl, m, 0.135, 0.28, 0.135, 0, 0.3, 0));
+      h.add(part(geo.cyl, m, 0.24, 0.015, 0.24, 0, 0.16, 0));
+      // κορδέλα σε χρώμα που ξεχωρίζει
+      h.add(part(geo.cyl, c ? shade(c, new THREE.Color(c).getHSL({ h: 0, s: 0, l: 0 }).l > 0.5 ? 0.55 : 1.8) : '#8B1E1E', 0.137, 0.045, 0.137, 0, 0.19, 0));
     } else if (kind === 3) {
-      const t = part(geo.torus, '#E23B3B', 0.165, 0.165, 0.3, 0, 0.08, 0);
+      const t = part(geo.torus, c ?? '#E23B3B', 0.165, 0.165, 0.3, 0, 0.08, 0);
       t.rotation.x = Math.PI / 2;
       h.add(t);
     } else if (kind === 4) {
-      h.add(part(geo.cyl, '#E8B923', 0.14, 0.07, 0.14, 0, 0.19, 0));
+      const m = c ?? '#E8B923';
+      h.add(part(geo.cyl, m, 0.14, 0.07, 0.14, 0, 0.19, 0));
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2;
-        h.add(part(geo.cone, '#E8B923', 0.025, 0.08, 0.025, Math.cos(a) * 0.125, 0.26, Math.sin(a) * 0.125));
+        h.add(part(geo.cone, m, 0.025, 0.08, 0.025, Math.cos(a) * 0.125, 0.26, Math.sin(a) * 0.125));
         if (i % 2 === 0) h.add(part(geo.sphere, i % 4 ? '#3B7DD8' : '#D83B3B', 0.016, 0.016, 0.016, Math.cos(a) * 0.14, 0.19, Math.sin(a) * 0.14));
       }
     }
   }
 
-  private addGlasses(kind: number) {
+  /** Βραχίονας γυαλιών: από τον μεντεσέ στην άκρη του σκελετού ως πίσω από το αυτί, χωρίς κενό. */
+  private temple(color: string, x: number, y: number, z: number) {
+    for (const sx of [-1, 1]) {
+      const a = new THREE.Vector3(sx * x, y, z);
+      const b = new THREE.Vector3(sx * 0.168, y + 0.004, -0.01);
+      const len = a.distanceTo(b);
+      const arm = part(geo.box, color, 0.009, 0.012, len + 0.012, 0, 0, 0, false);
+      arm.position.copy(a).add(b).multiplyScalar(0.5);
+      arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), b.clone().sub(a).normalize());
+      this.head.add(arm);
+      // μεντεσές: γεμίζει τη γωνία ανάμεσα στον σκελετό και τον βραχίονα
+      this.head.add(part(geo.box, color, 0.016, 0.016, 0.014, sx * (x - 0.004), y, z));
+    }
+  }
+
+  /** Γυαλιά (c: χρώμα σκελετού από την παλέτα, αλλιώς το αρχικό). */
+  private addGlasses(kind: number, c: string | null) {
     const h = this.head;
     if (kind === 1) {
-      for (const x of [-0.058, 0.058]) h.add(part(geo.torus, '#222', 0.04, 0.04, 0.08, x, 0.02, 0.156));
-      h.add(part(geo.box, '#222', 0.04, 0.008, 0.008, 0, 0.025, 0.162));
+      const m = c ?? '#222222';
+      for (const x of [-0.058, 0.058]) h.add(part(geo.torus, m, 0.04, 0.04, 0.08, x, 0.02, 0.156));
+      h.add(part(geo.box, m, 0.04, 0.008, 0.008, 0, 0.025, 0.162));
+      this.temple(m, 0.104, 0.022, 0.156);
     } else if (kind === 2) {
+      // γυαλιά ηλίου: οι φακοί μένουν σκούροι, ο σκελετός παίρνει το χρώμα
+      const m = c ?? '#0B0B0B';
       for (const x of [-0.058, 0.058]) h.add(part(geo.box, '#0B0B0B', 0.075, 0.042, 0.012, x, 0.022, 0.16));
-      h.add(part(geo.box, '#0B0B0B', 0.25, 0.014, 0.014, 0, 0.044, 0.157));
-      for (const sx of [-1, 1]) h.add(part(geo.box, '#0B0B0B', 0.008, 0.012, 0.15, sx * 0.158, 0.035, 0.08, false));
+      h.add(part(geo.box, m, 0.25, 0.014, 0.014, 0, 0.044, 0.157));
+      this.temple(m, 0.122, 0.038, 0.155);
     } else if (kind === 3) {
-      // χοντρός καφέ σκελετός με φακούς που γυαλίζουν
+      // χοντρός σκελετός με φακούς που γυαλίζουν
+      const m = c ?? '#7A3B1E';
       for (const x of [-0.06, 0.06]) {
-        const r = part(geo.torus, '#7A3B1E', 0.05, 0.048, 0.14, x, 0.02, 0.158);
-        h.add(r);
+        h.add(part(geo.torus, m, 0.05, 0.048, 0.14, x, 0.02, 0.158));
         const lens = new THREE.Mesh(new THREE.CircleGeometry(0.05, 20), LENS);
         lens.position.set(x, 0.02, 0.162);
         h.add(lens);
       }
-      h.add(part(geo.box, '#7A3B1E', 0.025, 0.012, 0.012, 0, 0.03, 0.163));
-      for (const sx of [-1, 1]) h.add(part(geo.box, '#7A3B1E', 0.01, 0.014, 0.15, sx * 0.158, 0.03, 0.08, false));
+      h.add(part(geo.box, m, 0.025, 0.012, 0.012, 0, 0.03, 0.163));
+      this.temple(m, 0.116, 0.024, 0.157);
     }
   }
 
@@ -651,6 +803,19 @@ export class Avatar {
   /** Χειρονομία για ms χιλιοστά (πάνω από ό,τι κάνει ο χαρακτήρας). */
   gesture(anim: Anim, ms: number, now = Date.now()) {
     this.over = { anim, until: now + ms };
+  }
+
+  private jumpAt = -1e12;
+
+  /** Άλμα (now: ρολόι Date.now). */
+  jump(now = Date.now()) {
+    if (now - this.jumpAt > JUMP_MS) this.jumpAt = now;
+  }
+
+  /** Πόσο ψηλά είναι στο άλμα (0 όταν πατάει κάτω) και σε ποιο σημείο του (0–1). */
+  private jumpK(now: number): number {
+    const k = (now - this.jumpAt) / JUMP_MS;
+    return k > 0 && k < 1 ? k : -1;
   }
 
   /** Η στάση που «θέλει» η κάθε κίνηση αυτή τη στιγμή. */
@@ -863,6 +1028,18 @@ export class Avatar {
       t.thighL = t.thighR = -Math.PI / 2;
       t.kneeL = t.kneeR = Math.PI / 2;
     }
+    // άλμα: μαζεύει τα πόδια και ανοίγει λίγο τα χέρια
+    const jk = this.jumpK(now);
+    if (jk >= 0 && !sitting && anim !== 'fall') {
+      const tuck = Math.sin(Math.PI * jk);
+      t.thighL = t.thighR = -0.55 * tuck;
+      t.kneeL = t.kneeR = 1.0 * tuck;
+      t.shoulderLz = -0.55 * tuck;
+      t.shoulderRz = 0.55 * tuck;
+      t.elbowL = t.elbowR = -0.4 * tuck;
+      t.bodyY = 0;
+      this.lastAnim = 'jump';
+    }
     // χέρια με όπλο ή μπουκάλι: κλειστή παλάμη
     if (this.held && anim !== 'finger') t.fistR = Math.max(t.fistR, 1.2);
     if (anim === 'punch' || anim === 'cuffed') t.fistL = t.fistR = 1.5;
@@ -891,12 +1068,15 @@ export class Avatar {
     const k = this.anim === 'walk' ? 1 - Math.exp(-dt * 22) : 1 - Math.exp(-dt * 10);
     const c = this.cur;
     for (const key of Object.keys(c) as (keyof Pose)[]) c[key] += (target[key] - c[key]) * k;
+    const jk = this.jumpK(now);
+    const jumpY = jk >= 0 ? jumpHeight(jk) : 0;
     if (this.rig) {
       this.rig.apply(c, this.lastAnim, dt);
+      this.body.position.y += jumpY;
       this.blink(dt);
       return;
     }
-    this.body.position.y = c.bodyY;
+    this.body.position.y = c.bodyY + jumpY;
     this.body.rotation.x = c.bodyX;
     this.spine.rotation.y = c.spine;
     this.hipL.rotation.x = c.thighL;

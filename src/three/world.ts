@@ -48,6 +48,8 @@ export interface WorldPlayer {
 export const MONEY_EMOTE = '💸';
 /** Κωλοδάχτυλο: «🖕>uid» (σε ποιον). */
 export const FINGER = '🖕>';
+/** Άλμα (στέλνεται όπως τα emotes για να το βλέπουν οι άλλοι). */
+export const JUMP_EMOTE = '⤴';
 
 export class World {
   readonly renderer: THREE.WebGLRenderer;
@@ -218,6 +220,7 @@ export class World {
       this.fp.speedMul = this.speedBoost;
       this.fp.onInteract = () => this.onInteract();
       this.fp.onEscape = () => this.onEscape();
+      this.fp.onJump = () => this.tryJump();
       const seat = this.mySeat();
       this.fp.pos.set(seat.x, 0, seat.z + 0.9);
       this.fp.yaw = 0;
@@ -226,8 +229,19 @@ export class World {
       this.fp.dispose();
       this.fp = null;
     }
+    this.fp?.setThird(v === 'third');
     this.avatars.get(this.myUid)?.setVisible(v !== 'first' || !!this.ending);
     this.syncCeiling();
+  }
+
+  /** Ο παίκτης πηδάει (Space ή κουμπί)· ειδοποιεί για να σταλεί στους άλλους. */
+  onJump: () => void = () => {};
+  tryJump(): boolean {
+    if (!this.fp || this.sitAt !== null || this.ending || this.eod || this.raid || this.uiOpen) return false;
+    if (!this.fp.jump()) return false;
+    this.avatars.get(this.myUid)?.jump();
+    this.onJump();
+    return true;
   }
 
   /** Από ψηλά (σταθερή κάμερα) δεν φαίνεται ό,τι κρέμεται από το ταβάνι. */
@@ -289,6 +303,7 @@ export class World {
       if (p.e && p.et && p.et !== this.emoteSeen.get(uid) && now - p.et < 4000) {
         this.emoteSeen.set(uid, p.et);
         if (p.e === MONEY_EMOTE) this.startMoneyGun(uid);
+        else if (p.e === JUMP_EMOTE) this.avatars.get(uid)?.jump();
         else if (p.e.startsWith(FINGER)) this.flipOff(uid, p.e.slice(FINGER.length));
         else this.avatars.get(uid)?.emote(p.e, now);
       }
@@ -795,7 +810,7 @@ export class World {
         a.target.set(p.x + (v?.vx ?? 0) * ahead, 0, p.z + (v?.vz ?? 0) * ahead);
         a.targetRy = p.ry;
         a.anim = p.a === 2 ? 'sit' : p.a === 1 ? 'walk' : 'idle';
-        if (p.e && p.et && wall - p.et < 2500 && p.a !== 2) a.anim = 'cheer';
+        if (p.e && p.e !== JUMP_EMOTE && p.et && wall - p.et < 2500 && p.a !== 2) a.anim = 'cheer';
       } else if (pl) {
         const s = this.office.seats[pl.desk] ?? this.office.seats[0];
         a.target.set(s.x, 0, s.z);
@@ -857,7 +872,7 @@ export class World {
       const fz = -Math.cos(yaw) * Math.cos(pitch);
       const dist = 3.2;
       const tx = pos.x;
-      const ty = 1.55;
+      const ty = 1.55 + this.fp.jumpY() * 0.7;
       const tz = pos.z;
       let cx = tx - fx * dist;
       let cy = ty - fy * dist + 0.7;

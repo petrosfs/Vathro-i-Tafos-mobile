@@ -3,7 +3,7 @@ import { checkForUpdate, esc, go, h, type Screen } from '../app';
 import { getLang, money, resolveLang, setLang, t } from '../i18n';
 import { loadSettings, RESOLUTIONS, saveSettings, type PersonalSettings } from '../settings';
 import {
-  BEARDS, BROWS, cleanName, EYES, GLASSES, HAIR_COLORS, MOUTHS, HAIR_STYLES, HATS, loadProfile, randomLook, saveProfile, SKINS, SUITS, TIES,
+  ACC_COLORS, BEARDS, FACES, BROWS, cleanName, EYES, GLASSES, HAIR_COLORS, MOUTHS, HAIR_STYLES, HATS, loadProfile, randomLook, saveProfile, SKINS, SUITS, TIES,
 } from '../profile';
 import type { GameState, Look } from '../sim/engine';
 import { deleteSave, loadSaves } from '../game/saves';
@@ -149,6 +149,8 @@ export function profileScreen(back: Screen, after?: () => void): Screen {
     const look: Look = { ...p.look };
     const swatches = (k: keyof Look, colors: string[]) =>
       `<div class="swatches" data-k="${k}">${colors.map((c, i) => `<button type="button" data-v="${i}" style="--c:${c}" aria-label="${i + 1}"></button>`).join('')}</div>`;
+    const accSwatches = (k: keyof Look) =>
+      `<div class="swatches" data-k="${k}"><button type="button" data-v="-1" class="auto" title="${esc(t('profile.accAuto'))}" aria-label="${esc(t('profile.accAuto'))}"></button>${ACC_COLORS.map((c, i) => `<button type="button" data-v="${i}" style="--c:${c}" aria-label="${i + 1}"></button>`).join('')}</div>`;
     const options = (k: keyof Look, n: number, prefix: string) =>
       `<div class="seg wrap" data-k="${k}">${Array.from({ length: n }, (_, i) => `<button type="button" data-v="${i}">${esc(t(`${prefix}.${i}` as Parameters<typeof t>[0]))}</button>`).join('')}</div>`;
     const el = h(`
@@ -157,6 +159,10 @@ export function profileScreen(back: Screen, after?: () => void): Screen {
         <div class="profile-top">
           <div class="preview big-preview"></div>
           <label class="field"><span>${esc(t('profile.name'))}</span><input name="name" maxlength="16" placeholder="${esc(t('profile.namePh'))}" value="${esc(p.name)}" /></label>
+        </div>
+        <div class="build-row">
+          <h3>${esc(t('profile.build'))}</h3>
+          <div class="range-row"><small>${esc(t('build.thin'))}</small><input type="range" min="0" max="100" step="5" value="${look.build ?? 50}" data-build aria-label="${esc(t('profile.build'))}" /><small>${esc(t('build.fat'))}</small></div>
         </div>
         <nav class="ptabs" role="tablist">
           <button type="button" data-tab="clothes" class="sel">👔 ${esc(t('profile.tab.clothes'))}</button>
@@ -175,13 +181,16 @@ export function profileScreen(back: Screen, after?: () => void): Screen {
           <h3>${esc(t('profile.beard'))}</h3>${options('beard', BEARDS, 'beard')}
         </section>
         <section class="ptab" data-pane="face" hidden>
+          <h3>${esc(t('profile.face'))}</h3>${options('face', FACES, 'face')}
           <h3>${esc(t('profile.eyes'))}</h3>${options('eyes', EYES, 'eyes')}
           <h3>${esc(t('profile.mouth'))}</h3>${options('mouth', MOUTHS, 'mouth')}
           <h3>${esc(t('profile.brows'))}</h3>${options('brows', BROWS, 'brows')}
         </section>
         <section class="ptab" data-pane="extras" hidden>
           <h3>${esc(t('profile.hat'))}</h3>${options('hat', HATS, 'hat')}
+          <div data-when="hat"><h3>${esc(t('profile.hatColor'))}</h3>${accSwatches('hatColor')}</div>
           <h3>${esc(t('profile.glasses'))}</h3>${options('glasses', GLASSES, 'glasses')}
+          <div data-when="glasses"><h3>${esc(t('profile.glassColor'))}</h3>${accSwatches('glassColor')}</div>
         </section>
         <div class="row">
           <button class="btn ghost" data-random>🎲 ${esc(t('profile.random'))}</button>
@@ -193,8 +202,11 @@ export function profileScreen(back: Screen, after?: () => void): Screen {
     const sync = () => {
       el.querySelectorAll<HTMLElement>('[data-k]').forEach((box) => {
         const k = box.dataset.k as keyof Look;
-        box.querySelectorAll<HTMLElement>('[data-v]').forEach((b) => b.classList.toggle('sel', Number(b.dataset.v) === look[k]));
+        box.querySelectorAll<HTMLElement>('[data-v]').forEach((b) => b.classList.toggle('sel', Number(b.dataset.v) === (look[k] ?? (k === 'hatColor' || k === 'glassColor' ? -1 : 0))));
       });
+      // το χρώμα φαίνεται μόνο όταν φοράει το αξεσουάρ
+      el.querySelectorAll<HTMLElement>('[data-when]').forEach((x) => (x.hidden = !look[x.dataset.when as 'hat' | 'glasses']));
+      el.querySelector<HTMLInputElement>('[data-build]')!.value = String(look.build ?? 50);
       preview.set(look);
     };
     sync();
@@ -214,6 +226,15 @@ export function profileScreen(back: Screen, after?: () => void): Screen {
         look[box.dataset.k as keyof Look] = Number(b.dataset.v);
         sync();
       }
+    });
+    // πάχος: ενημέρωση της προεπισκόπησης το πολύ μία φορά ανά καρέ
+    let buildRaf = 0;
+    el.querySelector<HTMLInputElement>('[data-build]')!.addEventListener('input', (e) => {
+      look.build = Number((e.target as HTMLInputElement).value);
+      if (!buildRaf) buildRaf = requestAnimationFrame(() => {
+        buildRaf = 0;
+        preview.set(look);
+      });
     });
     const nameInput = el.querySelector<HTMLInputElement>('input[name=name]')!;
     const save = () => saveProfile({ name: cleanName(nameInput.value), look });

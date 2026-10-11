@@ -41,7 +41,8 @@
 
 - **3D γραφείο** με γραφεία, οθόνες, μεγάλο πίνακα τιμών και μηχάνημα καταστήματος. Τρεις κάμερες, από τις
   ρυθμίσεις: **πρώτο πρόσωπο**, **τρίτο πρόσωπο** (περπατάς με WASD/ποντίκι ή joystick στο κινητό, E για
-  τερματικό, Q για κατάστημα, Esc για μενού) ή **σταθερή από ψηλά**.
+  τερματικό, Q για κατάστημα, Esc για μενού) ή **σταθερή από ψηλά**. **Άλμα** με Space ή με το κουμπί «Jump»
+  στο κινητό· στο τρίτο πρόσωπο η κάμερα γυρίζει με κρατημένο δεξί κλικ ή ροδέλα.
 - **Χρηματιστήριο που αλλάζει**: ξεκινάτε με 5 φανταστικές μετοχές και φτάνετε ως 12 από έναν κατάλογο 34.
   **Νέες εισαγωγές (IPO)** με hint την προηγούμενη μέρα και πιθανό «πυρετό», **χρεωκοπίες** με ανησυχητικές
   ειδήσεις πριν, μετοχές που ωριμάζουν, τοπικές εταιρείες στην αρχή και διεθνείς από τη Wall Street και πάνω.
@@ -75,6 +76,8 @@
 - **Νομίσματα κάθε μέρα**: 1 πάντα, 2 με τον στόχο, 3 με τον κουμπαρά, και έξτρα όταν τον ξεπερνάτε.
 - **Κουβέντα στο παιχνίδι**: έτοιμες φράσεις (μισές στα αγγλικά) που ακούγονται με συνθετική φωνή ή δικό σου κείμενο, σε συννεφάκι πάνω
   από τον χαρακτήρα, χωρίς να κλείσεις το τερματικό. Και **κωλοδάχτυλο** στον συνάδελφο που κοιτάς.
+- **Χαρακτήρας στα μέτρα σου**: σωματότυπος από αδύνατος ως χοντρός (μπάρα), τρία σχήματα κεφαλιού, μάτια, στόμα,
+  φρύδια, μαλλιά, μούσι, καπέλο και γυαλιά με χρώμα της επιλογής σου.
 - **Τερματικό σε τρεις στήλες**: γράφημα, αγορά και θέσεις, ειδήσεις, όλα μαζί (στο κινητό με κυλιόμενη μπάρα
   ειδήσεων).
 - **Τηλεόραση με δελτίο ειδήσεων** δίπλα στον πίνακα από την πολυκατοικία και πάνω, ασπροπίνακας, διπλώματα,
@@ -169,7 +172,8 @@ phone or a computer, with no install and no account.
 
 - **3D office** with desks, monitors, a big price board and a shop machine. Three cameras in settings:
   **first person**, **third person** (walk with WASD/mouse or a joystick on phones, E for the terminal, Q for
-  the shop, Esc for the menu) or a **fixed overhead view**.
+  the shop, Esc for the menu) or a **fixed overhead view**. **Jump** with Space or the “Jump” button on phones; in
+  third person the camera turns while you hold the right mouse button or the wheel.
 - **A changing stock exchange**: start with 5 fictional stocks and grow to 12 from a catalogue of 34. **IPOs**
   with a hint the day before and possible “fever”, **bankruptcies** foreshadowed by worrying headlines, stocks
   that mature, local companies early and international ones from Wall Street up. Headlines just before the price
@@ -201,6 +205,8 @@ phone or a computer, with no install and no account.
 - **Coins every day**: 1 always, 2 when you hit the quota, 3 with the piggy bank, plus extras for beating it.
 - **In-game talk**: ready phrases (half of them in English) spoken with a synthetic voice or your own text, in a bubble over your character,
   without closing the terminal. Plus a **middle finger** for the colleague you are looking at.
+- **Your own character**: body type from thin to heavy (slider), three head shapes, eyes, mouth, brows, hair, beard,
+  and a hat and glasses in the colour you pick.
 - **Three-column terminal**: chart, trading and positions, news, all at once (on phones with a scrolling news bar).
 - **News TV** next to the board from the apartment office up, a whiteboard, diplomas, a notice board, a drop
   ceiling and a clock showing market time.

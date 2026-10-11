@@ -10,7 +10,7 @@ import { ITEM } from '../sim/items';
 import { GameController } from '../game/controller';
 import { crashIn, headline, newsTag, shownAt, visibleNews } from '../game/news';
 import type { Transport } from '../net/transport';
-import { FINGER, MONEY_EMOTE, World } from '../three/world';
+import { FINGER, JUMP_EMOTE, MONEY_EMOTE, World } from '../three/world';
 import { PLAYER_COLORS } from '../three/avatar';
 import { decodeSay, SayBar, speak } from '../ui/say';
 import type { BoardData } from '../three/textures';
@@ -69,6 +69,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           <div class="center-msg" hidden></div>
           <div class="eod-caption" hidden></div>
           <button class="interact" hidden></button>
+          <button class="jump-btn" hidden aria-label="${esc(t('hud.jump'))}">${esc(t('hud.jump'))}</button>
           <p class="fp-hint" hidden></p>
           <nav class="hud-bottom">
             <button class="hud-btn" data-ui="terminal">📈 <span>${esc(t('hud.terminal'))}</span></button>
@@ -164,6 +165,11 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       if (!panel && !ended) openPanel('menu');
     };
     interactBtn.addEventListener('click', interact);
+    const jumpBtn = $<HTMLButtonElement>('.jump-btn');
+    jumpBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      world.tryJump();
+    });
 
     const onKey = (e: KeyboardEvent) => {
       const typing = (e.target as HTMLElement)?.tagName === 'INPUT';
@@ -245,6 +251,12 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       pendingEmote = { e, et: now };
       sendPose(true);
     }
+
+    // άλμα: το βλέπουν και οι άλλοι
+    world.onJump = () => {
+      pendingEmote = { e: JUMP_EMOTE, et: tr0.now() };
+      sendPose(true);
+    };
 
     // ---- θέση μου στους άλλους ----
     let pendingEmote: { e: string; et: number } | null = null;
@@ -486,9 +498,10 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         const label = near.kind === 'shop' ? t('hud.interactShop') : near.kind === 'slot' ? t('hud.interactSlot') : t('hud.interactDesk');
         interactBtn.textContent = matchMedia('(pointer: coarse)').matches ? label : `E · ${label}`;
       }
+      jumpBtn.hidden = !fpMode || !!panel || s.phase === 'ended' || !matchMedia('(pointer: coarse)').matches;
       const hint = $('.fp-hint');
       hint.hidden = !fpMode || !!panel || s.phase === 'ended' || !!near;
-      hint.textContent = matchMedia('(pointer: coarse)').matches ? t('hud.walkHint') : t('hud.fpHint');
+      hint.textContent = matchMedia('(pointer: coarse)').matches ? t('hud.walkHint') : world.view === 'third' ? t('hud.tpHint') : t('hud.fpHint');
       // αντίστροφη μέτρηση
       const center = $('.center-msg');
       if (trading && tickF < 0) {

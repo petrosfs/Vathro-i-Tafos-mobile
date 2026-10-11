@@ -96,9 +96,13 @@ export class ModelRig {
   /** Η στάση κάθε κόκαλου μετά την κίνηση του προηγούμενου καρέ, πριν από τις δικές μας περιστροφές (αλλιώς θα αθροίζονταν). */
   private rest: [THREE.Bone, THREE.Quaternion, THREE.Vector3][] = [];
 
-  constructor(private body: THREE.Object3D, private head: THREE.Object3D, colors: RigColors, swat = false) {
+  /** Πάχος −1 (αδύνατος) … 0 … 1 (χοντρός). */
+  private fat = 0;
+
+  constructor(private body: THREE.Object3D, private head: THREE.Object3D, colors: RigColors, swat = false, fat = 0) {
     const tpl = swat && SWAT ? SWAT : SUIT!;
     this.root = cloneSkinned(tpl.scene);
+    this.fat = swat ? 0 : Math.max(-1, Math.min(1, fat));
     this.root.traverse((o) => {
       const b = o as THREE.Bone;
       if (b.isBone) this.bones.set(b.name, b);
@@ -125,6 +129,7 @@ export class ModelRig {
     });
     body.add(this.root);
     body.add(this.holdR, this.wristL);
+    if (Math.abs(this.fat) > 0.01) this.fatten(this.fat);
     const anim = SUIT!.clips;
     this.mixer = new THREE.AnimationMixer(this.root);
     for (const [k, clip] of anim) this.actions.set(k, this.mixer.clipAction(clip));
@@ -217,11 +222,17 @@ export class ModelRig {
     this.root.updateMatrixWorld(true);
     this.rootInv.copy(this.root.matrixWorld).invert();
     const clipDriven = anim === 'walk' || anim === 'fall';
+    // χοντρός: τα χέρια λίγο πιο ανοιχτά για να μη «μπαίνουν» στην κοιλιά
+    const spread = this.fat > 0 ? this.fat * 0.22 : 0;
+    if (clipDriven && spread && anim === 'walk') {
+      this.rotateBody(this.bone('UpperArmR'), this.tmpQ.setFromAxisAngle(Z, -spread));
+      this.rotateBody(this.bone('UpperArmL'), this.tmpQ.setFromAxisAngle(Z, spread));
+    }
     // κορμός και κεφάλι
     if (!clipDriven && Math.abs(p.spine) > 1e-3) this.rotateBody(this.bone('Torso'), this.tmpQ.setFromAxisAngle(Y, p.spine));
     if (!clipDriven) {
       // χέρια: ώμος (μπρος-πίσω και στο πλάι) και αγκώνας, όπως στον απλό χαρακτήρα
-      for (const [side, sx, sz, el] of [['R', p.shoulderLx, p.shoulderLz, p.elbowL], ['L', p.shoulderRx, p.shoulderRz, p.elbowR]] as const) {
+      for (const [side, sx, sz, el] of [['R', p.shoulderLx, p.shoulderLz - spread, p.elbowL], ['L', p.shoulderRx, p.shoulderRz + spread, p.elbowR]] as const) {
         const qs = new THREE.Quaternion().setFromAxisAngle(X, sx).multiply(new THREE.Quaternion().setFromAxisAngle(Z, sz));
         this.rotateBody(this.bone(`UpperArm${side}`), qs);
         const axis = X.clone().applyQuaternion(qs);
@@ -270,7 +281,119 @@ export class ModelRig {
     o.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir);
   }
 
+  /**
+   * Πάχος: κάθε κορυφή του σώματος απομακρύνεται (ή πλησιάζει) από τον άξονα των κόκαλων που την κινούν.
+   * Ο κορμός φουσκώνει και μπροστά (κοιλιά)· το κεφάλι, οι παλάμες και τα πόδια μένουν ίδια.
+   * Οι υπολογισμοί γίνονται στη στάση «δεσίματος» του κάθε πλέγματος, όπου οι κορυφές είναι αυτούσιες.
+   */
+  private fatten(f: number) {
+    const K: Record<string, [string, number, number]> = {
+      // κόκαλο: [παιδί (τέλος του άξονα), πόσο φουσκώνει, κοιλιά]
+      Hips: ['Abdomen', 0.5, 0.5],
+      Abdomen: ['Torso', 0.75, 1],
+      Torso: ['Chest', 0.6, 0.8],
+      Chest: ['Neck', 0.4, 0.2],
+      Neck: ['Head', 0.15, 0],
+      ShoulderL: ['UpperArmL', 0.25, 0], ShoulderR: ['UpperArmR', 0.25, 0],
+      UpperArmL: ['LowerArmL', 0.5, 0], UpperArmR: ['LowerArmR', 0.5, 0],
+      LowerArmL: ['WristL', 0.25, 0], LowerArmR: ['WristR', 0.25, 0],
+      UpperLegL: ['LowerLegL', 0.4, 0], UpperLegR: ['LowerLegR', 0.4, 0],
+      LowerLegL: ['FootL', 0.14, 0], LowerLegR: ['FootR', 0.14, 0],
+    };
+    const TORSO = new Set(['Hips', 'Abdomen', 'Torso', 'Chest', 'Neck']);
+    const tmpM = new THREE.Matrix4();
+    const v = new THREE.Vector3();
+    const d = new THREE.Vector3();
+    const c = new THREE.Vector3();
+    const ab = new THREE.Vector3();
+    const delta = new THREE.Vector3();
+    const si = new THREE.Vector4();
+    const sw = new THREE.Vector4();
+    this.root.traverse((obj) => {
+      const m = obj as THREE.SkinnedMesh;
+      if (!m.isSkinnedMesh || !m.visible) return;
+      const sk = m.skeleton;
+      // αρθρώσεις στη στάση δεσίματος (στον ίδιο χώρο με bindMatrix·p)
+      const joint = new Map<string, THREE.Vector3>();
+      sk.bones.forEach((b, k) => joint.set(b.name, new THREE.Vector3().setFromMatrixPosition(tmpM.copy(sk.boneInverses[k]).invert())));
+      const J = (n: string) => joint.get(n);
+      const hips = J('Hips');
+      const neck = J('Neck');
+      const al = J('UpperArmL');
+      const ar = J('UpperArmR');
+      if (!hips || !neck || !al || !ar) return;
+      // άξονες του σώματος και κλίμακα σε μέτρα (λεκάνη–λαιμός ≈ 0,61 μ.)
+      const up = neck.clone().sub(hips);
+      const metre = up.length() / 0.61;
+      up.normalize();
+      const side = al.clone().sub(ar).normalize();
+      const front = new THREE.Vector3().crossVectors(side, up).normalize();
+      const seg = new Map<string, [THREE.Vector3, THREE.Vector3]>();
+      for (const [n, [ch]] of Object.entries(K)) {
+        const a = J(n);
+        const b = J(ch);
+        if (a && b) seg.set(n, [a, b]);
+      }
+      m.geometry = m.geometry.clone();
+      this.ownGeo.push(m.geometry);
+      const pos = m.geometry.attributes.position as THREE.BufferAttribute;
+      const idx = m.geometry.attributes.skinIndex as THREE.BufferAttribute;
+      const wgt = m.geometry.attributes.skinWeight as THREE.BufferAttribute;
+      const toLocal = new THREE.Matrix3().setFromMatrix4(m.bindMatrixInverse);
+      const lim = (x: number) => (pos.normalized ? Math.max(-1, Math.min(1, x)) : x);
+      for (let i = 0; i < pos.count; i++) {
+        si.fromBufferAttribute(idx, i);
+        sw.fromBufferAttribute(wgt, i);
+        v.fromBufferAttribute(pos, i).applyMatrix4(m.bindMatrix);
+        delta.set(0, 0, 0);
+        for (let k = 0; k < 4; k++) {
+          const w = sw.getComponent(k);
+          if (w < 1e-3) continue;
+          const bn = sk.bones[si.getComponent(k)]?.name;
+          const spec = bn ? K[bn] : undefined;
+          const sg = bn ? seg.get(bn) : undefined;
+          if (!bn || !spec || !sg) continue;
+          const [a, b] = sg;
+          ab.copy(b).sub(a);
+          const tt = Math.max(0, Math.min(1, d.copy(v).sub(a).dot(ab) / Math.max(1e-9, ab.lengthSq())));
+          c.copy(a).addScaledVector(ab, tt);
+          d.copy(v).sub(c);
+          let k1 = spec[1] * f;
+          if (TORSO.has(bn)) {
+            // οριζόντια μόνο· στα πλάγια λιγότερο από μπροστά/πίσω
+            const h = v.clone().sub(hips).dot(up) / metre;
+            if (bn === 'Hips') k1 *= Math.max(0, Math.min(1, 1 + h / 0.08));
+            const dx = d.dot(side);
+            const dz = d.dot(front);
+            delta.addScaledVector(side, dx * k1 * 0.7 * w);
+            delta.addScaledVector(front, dz * k1 * w);
+            // κοιλιά: στρογγυλό φούσκωμα μπροστά, λίγο πάνω από τη λεκάνη
+            const len = Math.hypot(dx, dz);
+            if (f > 0 && dz > 0 && len > 1e-9) {
+              const g = Math.exp(-(((h - 0.3) / 0.18) ** 2));
+              delta.addScaledVector(front, f * spec[2] * 0.16 * metre * g * (dz / len) ** 1.5 * w);
+            }
+          } else {
+            if (f < 0) k1 *= 0.7;
+            // μόνο κάθετα στο κόκαλο (όχι μάκρεμα του χεριού/ποδιού)
+            const u = ab.normalize();
+            d.addScaledVector(u, -d.dot(u));
+            delta.addScaledVector(d, k1 * w);
+          }
+        }
+        if (delta.lengthSq() === 0) continue;
+        delta.applyMatrix3(toLocal);
+        // οι συντεταγμένες είναι κβαντισμένες (−1…1): χωρίς όριο θα «αναποδογύριζαν»
+        pos.setXYZ(i, lim(pos.getX(i) + delta.x), lim(pos.getY(i) + delta.y), lim(pos.getZ(i) + delta.z));
+      }
+      pos.needsUpdate = true;
+    });
+  }
+
+  private ownGeo: THREE.BufferGeometry[] = [];
+
   dispose() {
+    for (const g of this.ownGeo) g.dispose();
     this.mixer.stopAllAction();
     this.root.removeFromParent();
   }
