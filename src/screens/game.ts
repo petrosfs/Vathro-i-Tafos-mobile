@@ -69,6 +69,7 @@ export function gameScreen(opts: GameScreenOpts): Screen {
           <div class="center-msg" hidden></div>
           <div class="eod-caption" hidden></div>
           <button class="interact" hidden></button>
+          <button class="cam-btn" title="${esc(t('hud.camera'))} (C)" aria-label="${esc(t('hud.camera'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3.2l1.6-2.2h6.4L16.8 7H20a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 20 19H4a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 4 7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
           <button class="jump-btn" hidden aria-label="${esc(t('hud.jump'))}">${esc(t('hud.jump'))}</button>
           <p class="fp-hint" hidden></p>
           <nav class="hud-bottom">
@@ -165,6 +166,19 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       if (!panel && !ended) openPanel('menu');
     };
     interactBtn.addEventListener('click', interact);
+    // κουμπί κάμερας: πρώτο → τρίτο πρόσωπο → από ψηλά → …
+    const VIEWS = ['first', 'third', 'overview'] as const;
+    function cycleView() {
+      if (world.eodPlaying || ended) return;
+      const v = VIEWS[(VIEWS.indexOf(world.view as (typeof VIEWS)[number]) + 1) % VIEWS.length];
+      saveSettings({ ...loadSettings(), view: v });
+      world.setView(v);
+      toast(`🎥 ${t(`view.short.${v}`)}`, 'info', 1400);
+    }
+    $('.cam-btn').addEventListener('click', (e) => {
+      (e.currentTarget as HTMLElement).blur();
+      cycleView();
+    });
     const jumpBtn = $<HTMLButtonElement>('.jump-btn');
     jumpBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -196,6 +210,9 @@ export function gameScreen(opts: GameScreenOpts): Screen {
       } else if (!typing && !ended && (e.code === 'KeyT' || (e.key === 'Enter' && panel !== 'chat'))) {
         // T ή Enter: μίλα (χωρίς να κλείσει το τερματικό)
         sayBar.toggle(true);
+        e.preventDefault();
+      } else if (!typing && !panel && !ended && e.code === 'KeyC') {
+        cycleView();
         e.preventDefault();
       } else if (!typing && !ended && e.code === 'KeyF') {
         flipOff();
@@ -287,7 +304,8 @@ export function gameScreen(opts: GameScreenOpts): Screen {
         if (now - m.at > 10000) continue;
         const d = decodeSay(m.text);
         world.say(m.uid, d.text, Date.now());
-        if (d.preset !== null) speak(d.text, m.uid, d.en);
+        // ο χαρακτήρας το φωνάζει (και τις έτοιμες φράσεις και ό,τι γράψεις)
+        speak(d.text, m.uid, d.en || !/[\u0370-\u03ff\u1f00-\u1fff]/.test(d.text), world.hearVolume(m.uid));
         // όταν το συννεφάκι δεν φαίνεται (πρώτο πρόσωπο για τον εαυτό σου, ανοιχτό πάνελ, μακριά), βγαίνει και ως μήνυμα
         const mine = m.uid === g.uid;
         const bubbleHidden = (!!panel && panel !== 'chat') || (mine ? world.view === 'first' : !world.isNear(m.uid));

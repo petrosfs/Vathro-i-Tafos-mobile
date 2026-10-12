@@ -37,19 +37,26 @@ export function decodeSay(text: string): { text: string; preset: number | null; 
 
 export const encodePreset = (n: number) => `${PREFIX}${n}`;
 
-/** Συνθετική φωνή της συσκευής (διαφορετικό ύψος για κάθε παίκτη). */
-export function speak(text: string, uid: string, english = false) {
+/** Ο χαρακτήρας φωνάζει (συνθετική φωνή της συσκευής, ψηλότερη και πιο γρήγορη, διαφορετική για κάθε παίκτη). */
+export function speak(text: string, uid: string, english = false, volume = 1) {
   try {
     if (!loadSettings().sound || !('speechSynthesis' in window)) return;
-    const u = new SpeechSynthesisUtterance(text.replace(/[\u{1F300}-\u{1FAFF}☀-➿]/gu, ''));
+    let line = text.replace(/[\u{1F300}-\u{1FAFF}☀-➿]/gu, '').trim();
+    if (!line) return;
+    // φωνή, όχι ανακοίνωση: θαυμαστικό στο τέλος (οι μηχανές ομιλίας ανεβάζουν τον τόνο)
+    if (!/[!?;…]$/.test(line)) line = line.replace(/[.,·]$/, '') + '!';
+    const u = new SpeechSynthesisUtterance(line);
     const lang = getLang() === 'el' && !english ? 'el-GR' : 'en-US';
     u.lang = lang;
     const voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith(lang.slice(0, 2)));
     let hsh = 0;
     for (const c of uid) hsh = (hsh * 31 + c.charCodeAt(0)) >>> 0;
     if (voices.length) u.voice = voices[hsh % voices.length];
-    u.pitch = 0.75 + (hsh % 7) * 0.1;
-    u.rate = 1.08;
+    u.pitch = Math.min(2, 1.25 + (hsh % 6) * 0.1);
+    u.rate = 1.22;
+    u.volume = Math.max(0.2, Math.min(1, volume));
+    // να μην «κολλάνε» οι φωνές η μία πίσω από την άλλη: η νέα κραυγή κόβει όσες περιμένουν πολύ
+    if (speechSynthesis.pending) speechSynthesis.cancel();
     speechSynthesis.speak(u);
   } catch {
     /* χωρίς φωνή */

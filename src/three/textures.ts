@@ -349,16 +349,24 @@ export function bubbleTexture(text: string): THREE.CanvasTexture {
 }
 
 /** Συννεφάκι ομιλίας με κείμενο (ως 3 γραμμές). Επιστρέφει και την αναλογία πλάτους/ύψους. */
+/** Κείμενο σε κεφαλαία (στα ελληνικά χωρίς τόνους, όπως γράφονται τα κεφαλαία). */
+export function shoutCase(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleUpperCase('el-GR').normalize('NFC');
+}
+
+/** Συννεφάκι-κραυγή: «σκασμένο» περίγραμμα με μυτερές άκρες, έντονα κεφαλαία γράμματα. */
 export function speechTexture(text: string): { tex: THREE.CanvasTexture; aspect: number } {
-  const W = 360;
+  const W = 400;
+  const big = shoutCase(text);
+  const font = `900 30px ${FONT}`;
   const measure = canvasTexture(8, 8, 1).ctx;
-  measure.font = `600 30px ${FONT}`;
-  const words = text.split(/\s+/);
+  measure.font = font;
+  const words = big.split(/\s+/);
   const lines: string[] = [];
   let cur = '';
   for (const w of words) {
     const next = cur ? `${cur} ${w}` : w;
-    if (measure.measureText(next).width > W - 40 && cur) {
+    if (measure.measureText(next).width > W - 90 && cur) {
       lines.push(cur);
       cur = w;
     } else cur = next;
@@ -368,27 +376,54 @@ export function speechTexture(text: string): { tex: THREE.CanvasTexture; aspect:
     lines.length = 3;
     lines[2] = lines[2].replace(/.{0,2}$/, '…');
   }
-  const wMax = Math.min(W, Math.max(120, ...lines.map((l) => measure.measureText(l).width + 44)));
-  const H = 26 + lines.length * 36 + 22;
+  const tw = Math.max(...lines.map((l) => measure.measureText(l).width));
+  const wMax = Math.min(W, Math.max(170, tw + 96));
+  const H = 50 + lines.length * 36 + 40;
   const { tex, ctx } = canvasTexture(wMax, H, 2);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.strokeStyle = '#1B1B1B';
-  ctx.lineWidth = 3;
-  roundRect(ctx, 3, 3, wMax - 6, H - 26, 18);
-  ctx.fill();
-  ctx.stroke();
+  // αστέρι-«έκρηξη» γύρω από το κείμενο, με ουρά προς τον χαρακτήρα
+  const cx = wMax / 2;
+  const cy = (H - 22) / 2;
+  const rx = wMax / 2 - 6;
+  const ry = (H - 22) / 2 - 4;
+  const spikes = Math.max(12, Math.round(wMax / 26));
   ctx.beginPath();
-  ctx.moveTo(wMax / 2 - 12, H - 24);
-  ctx.lineTo(wMax / 2, H - 4);
-  ctx.lineTo(wMax / 2 + 12, H - 24);
+  for (let k = 0; k <= spikes * 2; k++) {
+    const a = (k / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
+    const out = k % 2 === 0;
+    const kx = out ? 1 : 0.8;
+    const ky = out ? 1 : 0.74;
+    const x = cx + Math.cos(a) * rx * kx;
+    const y = cy + Math.sin(a) * ry * ky;
+    if (k === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = '#FFF35C';
+  ctx.strokeStyle = '#1B1B1B';
+  ctx.lineWidth = 4;
+  ctx.lineJoin = 'round';
   ctx.fill();
   ctx.stroke();
-  ctx.fillRect(wMax / 2 - 10, H - 28, 20, 6);
-  ctx.font = `600 30px ${FONT}`;
+  // ουρά
+  ctx.beginPath();
+  ctx.moveTo(cx - 14, cy + ry * 0.7);
+  ctx.lineTo(cx + 4, H - 3);
+  ctx.lineTo(cx + 16, cy + ry * 0.7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillRect(cx - 12, cy + ry * 0.55, 26, 12);
+  ctx.font = font;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#111';
-  lines.forEach((l, i) => ctx.fillText(l, wMax / 2, 24 + i * 36 + 4));
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.fillStyle = '#C8102E';
+  lines.forEach((l, i) => {
+    const y = cy - ((lines.length - 1) * 36) / 2 + i * 36 + 2;
+    ctx.strokeText(l, cx, y);
+    ctx.fillText(l, cx, y);
+  });
   tex.needsUpdate = true;
   return { tex, aspect: wMax / H };
 }

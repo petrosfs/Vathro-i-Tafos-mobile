@@ -262,7 +262,7 @@ function part(g: THREE.BufferGeometry, color: string | THREE.Material, sx = 1, s
 
 export type Anim =
   | 'idle' | 'walk' | 'sit' | 'cheer' | 'fall' | 'podium'
-  | 'dance' | 'throw' | 'punch' | 'shoot' | 'sad' | 'drink' | 'aim' | 'hands' | 'cuffed' | 'finger' | 'angry';
+  | 'dance' | 'throw' | 'punch' | 'shoot' | 'sad' | 'drink' | 'aim' | 'hands' | 'cuffed' | 'finger' | 'angry' | 'shout';
 
 interface Pose {
   bodyY: number;
@@ -568,7 +568,24 @@ export class Avatar {
       m.add(mb);
     }
     this.head.add(m);
+    this.mouthNormal = m;
+    // στόμα που φωνάζει: μεγάλο ανοιχτό, με δόντια (φαίνεται μόνο όσο φωνάζει)
+    const sh = new THREE.Group();
+    sh.position.set(0, y - 0.006, f.z * out + (out > 1 ? 0.006 : 0.0025));
+    sh.rotation.set(f.tilt, 0, 0);
+    sh.scale.set(1.45, 1.7, 1.3);
+    const [sa, sb] = flatMouthGeo(2);
+    sh.add(new THREE.Mesh(sa, mat('#3A1210')));
+    const teeth = new THREE.Mesh(sb, mat('#FFFFFF'));
+    teeth.position.z = 0.0015;
+    sh.add(teeth);
+    sh.visible = false;
+    this.head.add(sh);
+    this.mouthShout = sh;
   }
+
+  private mouthNormal: THREE.Object3D | null = null;
+  private mouthShout: THREE.Object3D | null = null;
 
   private addHair(style: number, c: string) {
     const h = this.head;
@@ -764,18 +781,27 @@ export class Avatar {
   }
 
   /** Συννεφάκι με όσα λέει (για λίγα δευτερόλεπτα, ανάλογα με το μήκος). */
+  /** Φωνάζει: συννεφάκι-κραυγή, ανοιχτό στόμα και χέρι στο στόμα σαν χωνί. */
   say(text: string, now: number) {
     this.clearBubble();
     const { tex, aspect } = speechTexture(text);
     this.bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true }));
-    const hgt = 0.8 / Math.max(1.6, aspect / 1.4);
+    const hgt = 0.95 / Math.max(1.6, aspect / 1.4);
+    this.bubbleBase = [hgt * aspect, hgt];
+    this.bubbleAt = now;
     this.bubble.scale.set(hgt * aspect, hgt, 1);
     this.bubble.center.set(0.5, 0);
     this.bubble.position.set(0, 2.45, 0);
     this.bubble.renderOrder = 12;
     this.group.add(this.bubble);
     this.bubbleUntil = now + Math.min(7000, 2500 + text.length * 70);
+    this.gesture('shout', Math.min(2600, 1300 + text.length * 30), now);
+    this.shoutUntil = now + Math.min(2600, 1300 + text.length * 30);
   }
+
+  private bubbleBase: [number, number] = [1, 1];
+  private bubbleAt = 0;
+  private shoutUntil = 0;
 
   private clearBubble() {
     if (this.bubble) {
@@ -787,6 +813,7 @@ export class Avatar {
   }
 
   emote(text: string, now: number) {
+    this.bubbleAt = 0;
     if (this.bubble) {
       this.group.remove(this.bubble);
       (this.bubble.material as THREE.SpriteMaterial).map?.dispose();
@@ -1013,6 +1040,22 @@ export class Avatar {
         t.bodyY = Math.abs(Math.sin(p * 11)) * 0.03;
         break;
       }
+      case 'shout': {
+        // φωνάζει: το ένα χέρι σαν χωνί στο στόμα, το άλλο ψηλά, σκύβει μπροστά με κάθε φωνή
+        const k = Math.abs(Math.sin(p * 7));
+        t.shoulderRx = -2.35;
+        t.shoulderRz = 0.35;
+        t.elbowR = -2.25;
+        t.fistR = 0.35;
+        t.shoulderLx = -0.5 - k * 0.5;
+        t.shoulderLz = -0.9 - k * 0.4;
+        t.elbowL = -0.5;
+        t.fistL = 0.2;
+        t.headX = -0.22 + k * 0.12;
+        t.spine = -0.1;
+        t.bodyY = k * 0.02;
+        break;
+      }
       case 'fall':
         this.fallT = Math.min(1, this.fallT + dt * 1.6);
         t.bodyX = -this.fallT * Math.PI / 2;
@@ -1062,6 +1105,20 @@ export class Avatar {
       this.group.remove(this.bubble);
       this.bubble = null;
     }
+    // φωνή: το συννεφάκι «σκάει» και τρέμει λίγο, το στόμα ανοιγοκλείνει
+    const shouting = now < this.shoutUntil;
+    if (this.bubble && this.bubbleAt) {
+      const e = (now - this.bubbleAt) / 1000;
+      const pop = e < 0.18 ? 0.55 + (e / 0.18) * 0.6 : e < 0.3 ? 1.15 - ((e - 0.18) / 0.12) * 0.15 : 1;
+      const shake = shouting ? Math.sin(now / 28) * 0.012 : 0;
+      this.bubble.scale.set(this.bubbleBase[0] * pop, this.bubbleBase[1] * pop, 1);
+      this.bubble.position.x = shake;
+    }
+    if (this.mouthShout && this.mouthNormal) {
+      this.mouthShout.visible = shouting;
+      this.mouthNormal.visible = !shouting;
+      if (shouting) this.mouthShout.scale.y = 1.4 + Math.abs(Math.sin(now / 85)) * 0.6;
+    }
     this.phase += dt;
     // ομαλή μετάβαση ανάμεσα στις στάσεις
     const target = this.targetPose(dt, now);
@@ -1071,8 +1128,7 @@ export class Avatar {
     const jk = this.jumpK(now);
     const jumpY = jk >= 0 ? jumpHeight(jk) : 0;
     if (this.rig) {
-      this.rig.apply(c, this.lastAnim, dt);
-      this.body.position.y += jumpY;
+      this.rig.apply(c, this.lastAnim, dt, jumpY);
       this.blink(dt);
       return;
     }

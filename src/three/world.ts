@@ -379,6 +379,15 @@ export class World {
     return Math.hypot(a.group.position.x - me.x, a.group.position.z - me.z) < 9;
   }
 
+  /** Πόσο δυνατά ακούγεται κάποιος που φωνάζει (από την απόσταση). */
+  hearVolume(uid: string): number {
+    const a = this.avatars.get(uid);
+    if (!a || uid === this.myUid || !this.fp) return 1;
+    const me = this.myPose();
+    const d = Math.hypot(a.group.position.x - me.x, a.group.position.z - me.z);
+    return Math.max(0.3, Math.min(1, 1.15 - d / 14));
+  }
+
   /** Συννεφάκι με όσα λέει ένας παίκτης. */
   say(uid: string, text: string, now: number) {
     this.avatars.get(uid)?.say(text, now);

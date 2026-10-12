@@ -198,7 +198,7 @@ export class ModelRig {
   }
 
   /** Στάση: κίνηση του μοντέλου + οι γωνίες από πάνω. */
-  apply(p: RigPose, anim: string, dt: number) {
+  apply(p: RigPose, anim: string, dt: number, lift = 0) {
     const clip = anim === 'walk' ? 'Walk' : anim === 'fall' ? 'Death' : anim === 'idle' ? 'Idle' : 'Idle_Neutral';
     this.play(clip);
     // κάθε καρέ ξεκινάμε από την «καθαρή» στάση της κίνησης (χωρίς τις δικές μας περιστροφές του προηγούμενου καρέ)
@@ -218,6 +218,11 @@ export class ModelRig {
       r[1].copy(r[0].quaternion);
       r[2].copy(r[0].position);
     }
+    // σώμα: ύψος (κάθισμα, άλμα) και κλίση (πτώση) πριν από τους υπολογισμούς σε χώρο σώματος,
+    // αλλιώς το κεφάλι μένει ένα καρέ πίσω (π.χ. «ακίνητο» στο άλμα)
+    const clipBody = anim === 'walk' || anim === 'fall';
+    this.body.position.y = (clipBody ? 0 : p.bodyY) + lift;
+    this.body.rotation.x = clipBody ? 0 : p.bodyX;
     this.body.updateWorldMatrix(true, false);
     this.root.updateMatrixWorld(true);
     this.rootInv.copy(this.root.matrixWorld).invert();
@@ -257,8 +262,6 @@ export class ModelRig {
       this.rotateBody(this.bone('Head'), this.tmpQ.setFromEuler(new THREE.Euler(p.headX, p.headY, 0, 'YXZ')));
     }
     // σώμα: ύψος (κάθισμα) και κλίση (πτώση)
-    this.body.position.y = clipDriven ? 0 : p.bodyY;
-    this.body.rotation.x = clipDriven ? 0 : p.bodyX;
     // το δικό μας κεφάλι ακολουθεί το κόκαλο του κεφαλιού
     const hb = this.bone('Head');
     const hq = this.bodyQuat(hb, new THREE.Quaternion());

@@ -2338,3 +2338,43 @@ tr.me td {
 .game.eod .jump-btn {
   display: none;
 }
+
+/* κουμπί κάμερας: ημιδιάφανο, διακριτικό, πάνω δεξιά κάτω από τις ενδείξεις */
+.cam-btn {
+  position: absolute;
+  right: calc(env(safe-area-inset-right) + 12px);
+  top: calc(env(safe-area-inset-top) + 74px);
+  width: 40px;
+  height: 40px;
+  padding: 7px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(8, 12, 22, 0.32);
+  color: rgba(255, 255, 255, 0.78);
+  opacity: 0.6;
+  transition: opacity 0.15s, background 0.15s;
+  z-index: 3;
+}
+
+.cam-btn svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.cam-btn:hover,
+.cam-btn:focus-visible,
+.cam-btn:active {
+  opacity: 1;
+  background: rgba(8, 12, 22, 0.6);
+}
+
+@media (max-width: 700px) {
+  .cam-btn {
+    top: calc(env(safe-area-inset-top) + 136px);
+  }
+}
+
+.game.eod .cam-btn {
+  display: none;
+}

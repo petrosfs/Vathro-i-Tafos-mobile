@@ -7,6 +7,7 @@ import { homeScreen } from './screens/menus';
 import { onlineScreen } from './screens/online';
 import { CODE_RE, normalizeCode } from './net/code';
 import { loadCharacterModels } from './three/modelRig';
+import { loadDancerModel } from './three/dancer';
 
 setLang(resolveLang(loadSettings().lang));
 
@@ -14,7 +15,9 @@ setLang(resolveLang(loadSettings().lang));
 const app = document.getElementById('app');
 if (app) app.innerHTML = '<div class="boot">…</div>';
 const timeout = new Promise<boolean>((r) => setTimeout(() => r(false), 12000));
+// οι χορεύτριες των πάρτι φορτώνονται στο παρασκήνιο (δεν χρειάζονται στην αρχή)
 Promise.race([loadCharacterModels(import.meta.env.BASE_URL), timeout]).finally(() => {
+  void loadDancerModel(import.meta.env.BASE_URL);
   const room = normalizeCode(new URLSearchParams(location.search).get('room') ?? '');
   if (CODE_RE.test(room)) go(onlineScreen(room, !!loadProfile().name));
   else go(homeScreen);
